@@ -1,0 +1,188 @@
+metadata:
+  title: "Antibiotic treatment taxonomy — operational definitions"
+  version: "1.0"
+  scope: >
+    Operational definitions of broad-spectrum, narrow-spectrum, anti-infective
+    classes, and the rules by which the three treatment arms (continue,
+    de-escalate, cease) are derived from observed administrations.
+  rationale: >
+    Reviewer concern #15: agent-class definitions must be formal and explicit.
+    This YAML is the single source of truth; constants.py and
+    framing/treatment_classification.py source the drug lists from here.
+
+# ── Spectrum classifications ────────────────────────────────────────────────
+# Each class is one of: broad / narrow / antifungal / antiviral / prophylaxis /
+# exclude_from_classification. The arm-derivation rules below reference these.
+spectrum_classes:
+
+  broad:
+    description: >
+      Agents whose continuation at 72h is the question under study. An ICU
+      patient whose regimen at T0 contains any of these is classified as
+      'continue' for the purposes of this analysis.
+    agents:
+      # Carbapenems
+      - {name: meropenem,         class: carbapenem}
+      - {name: imipenem,          class: carbapenem}
+      - {name: ertapenem,         class: carbapenem}
+      - {name: doripenem,         class: carbapenem}
+      # Glycopeptides + anti-MRSA agents (treated as broad: extend
+      # Gram-positive coverage beyond narrow beta-lactams)
+      - {name: vancomycin,        class: glycopeptide,
+         note: "IV vancomycin only; oral vancomycin is classified as cdiff_therapy."}
+      - {name: linezolid,         class: oxazolidinone}
+      - {name: daptomycin,        class: lipopeptide}
+      # Broad β-lactams (3rd/4th-gen cephalosporins + penicillin/inhibitor combos)
+      - {name: piperacillin,      class: broad_betalactam,
+         note: "Includes piperacillin-tazobactam (Zosyn)."}
+      - {name: cefepime,          class: broad_betalactam}
+      - {name: ceftazidime,       class: broad_betalactam}
+      - {name: ceftriaxone,       class: broad_betalactam}
+      - {name: ampicillin-sulbactam, class: broad_betalactam}
+      # Aminoglycosides
+      - {name: gentamicin,        class: aminoglycoside}
+      - {name: amikacin,          class: aminoglycoside}
+      - {name: tobramycin,        class: aminoglycoside}
+
+  narrow:
+    description: >
+      Targeted, culture-guided agents. A regimen containing only narrow agents
+      (i.e. no active broad agent in window) is classified as 'de-escalate'.
+    agents:
+      - {name: ampicillin,        class: narrow_betalactam,
+         note: "Ampicillin alone (not ampicillin-sulbactam)."}
+      - {name: cefazolin,         class: narrow_betalactam,
+         note: "1st-gen cephalosporin; narrow Gram-positive coverage."}
+      - {name: cephalexin,        class: narrow_betalactam}
+      - {name: metronidazole,     class: nitroimidazole,
+         note: "IV metronidazole only; oral metronidazole is cdiff_therapy."}
+      - {name: azithromycin,      class: macrolide}
+      - {name: clarithromycin,    class: macrolide}
+      - {name: trimethoprim,      class: sulfonamide,
+         note: "TMP/SMX; narrow Gram-negative + Pneumocystis coverage."}
+      - {name: nitrofurantoin,    class: nitrofuran,
+         note: "Urinary tract pathogens only."}
+
+  antifungal:
+    description: >
+      Antifungals are flagged but do not participate in the broad/narrow
+      arm classification. A patient with concurrent antifungal therapy is
+      coded as 'antifungal_present=1' for sensitivity analysis.
+    classification_rule: exclude_from_arm
+    agents:
+      - {name: fluconazole}
+      - {name: micafungin}
+      - {name: caspofungin}
+      - {name: voriconazole}
+      - {name: amphotericin}
+
+  antiviral:
+    description: >
+      Antivirals (acyclovir, oseltamivir, etc.) are flagged but do not
+      participate in arm classification.
+    classification_rule: exclude_from_arm
+    agents:
+      - {name: acyclovir}
+      - {name: oseltamivir}
+      - {name: ganciclovir}
+      - {name: valacyclovir}
+
+  prophylaxis:
+    description: >
+      Prophylactic short-course peri-operative antibiotics are excluded from
+      arm classification when documented as prophylaxis (e.g., a single
+      perioperative cefazolin dose). In practice, MIMIC-IV does not encode
+      'prophylaxis intent' as a structured field, so we use a duration rule:
+      an agent administered for <=24h that is otherwise narrow-spectrum is
+      flagged as `prophylactic_only` and excluded from arm classification.
+      This is conservative and reviewer-flagged as concern #15.
+    classification_rule: exclude_from_arm_if_short_course
+    duration_threshold_hours: 24
+
+  cdiff_therapy:
+    description: >
+      Oral vancomycin or oral metronidazole when prescribed for suspected /
+      treated C. difficile colitis. These are coded as the outcome
+      `cdiff_28d`, NOT as antibiotic continuation/de-escalation arms.
+    classification_rule: exclude_from_arm
+    route_filter: PO
+    agents:
+      - {name: vancomycin,        route: PO}
+      - {name: metronidazole,     route: PO}
+      - {name: fidaxomicin}
+
+# ── Arm-derivation rules ───────────────────────────────────────────────────
+arm_derivation:
+  # Applied per stay, looking at administrations active in
+  # [T0 - window, T0 + window].
+  rules:
+    - id: rule_cease
+      description: >
+        No anti-bacterial administrations (broad OR narrow) active in the
+        classification window. Antifungals, antivirals, prophylactic short
+        courses, and oral C. difficile therapy do NOT count toward arm
+        classification (they are exclude_from_arm).
+      arm: stop
+
+    - id: rule_continue
+      description: >
+        At least one broad-spectrum agent active in the window. Vancomycin
+        IV counts as broad. Oral conversions of the same broad agent are
+        treated as 'route_change_only' (continue, with deviation flag).
+      arm: continue
+
+    - id: rule_deescalate
+      description: >
+        No broad-spectrum agent active in the window AND at least one
+        narrow-spectrum agent active. If both broad and narrow are active,
+        rule_continue takes precedence (regimen is mixed → broadest agent
+        wins).
+      arm: deescalate
+
+  deviation_flags:
+    # Recorded alongside the primary arm; used for sensitivity analyses.
+    - id: route_change_only
+      description: >
+        Patient's regimen at T0 contains the same agent the patient was on
+        at T0-12h, but the route changed (e.g., IV→PO conversion of
+        cefepime). Arm classification is unchanged; the flag enables a
+        sensitivity that reclassifies route-changes as 'deescalate'.
+    - id: dual_gram_negative
+      description: >
+        Two or more broad-spectrum agents covering Gram-negative pathogens
+        simultaneously active (e.g., piperacillin-tazobactam + gentamicin).
+        Arm = continue; flag enabled for subgroup analysis.
+    - id: antifungal_present
+      description: >
+        Antifungal therapy active concurrently with the primary arm.
+        Useful for descriptive subgroup.
+    - id: prophylactic_only
+      description: >
+        Regimen consists only of a short-course narrow-spectrum agent
+        ($\leq$24h) consistent with surgical prophylaxis; the stay is
+        excluded from arm classification and from the analytic cohort.
+    - id: post_T0_arm_switch
+      description: >
+        Patient's arm at T0+24h differs from arm at T0. Used by the
+        sustained-treatment ($\geq 48$h) sensitivity (WS2).
+
+# ── Sustained-treatment sensitivity ────────────────────────────────────────
+sustained_treatment:
+  description: >
+    Re-classify each arm under a stricter definition: 'continue' requires
+    sustained broad-spectrum administration $\geq 48$h after T0; 'stop'
+    requires sustained off-antibiotic $\geq 48$h after T0; 'de-escalate'
+    requires sustained narrow-only $\geq 48$h after T0. Patients whose
+    actual administration deviates within 48h are flagged
+    'post_T0_arm_switch' and analysed as an explicit non-adherence subgroup.
+  sustainment_hours: 48
+
+# ── Grace period (WS2) ─────────────────────────────────────────────────────
+grace_period:
+  description: >
+    24h grace period after T0 for arm classification. Patients whose
+    administration deviates within the grace window are kept in their
+    initial arm with a deviation flag. A no-grace ($w=0$) sensitivity is
+    reported alongside.
+  default_hours: 24
+  sensitivities: [0, 24, 48]

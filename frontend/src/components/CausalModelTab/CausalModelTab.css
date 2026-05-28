@@ -1,0 +1,171 @@
+.causal-tab {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.causal-tab__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  background: var(--bg);
+}
+
+.causal-tab__header {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Section above the DAG / drawer — contains patient pill + actions */
+.causal-tab__header-dag {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  gap: 12px;
+}
+
+/* Spacer that mirrors the outcomes panel column */
+.causal-tab__header-panel {
+  width: 360px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 1100px) {
+  .causal-tab__header-panel {
+    width: 300px;
+  }
+}
+
+.causal-tab__title-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 14px;
+  background: rgba(15, 27, 42, 0.62);
+  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.causal-tab__patient-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+.causal-tab__patient-name {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.causal-tab__patient-info {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.causal-tab__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.causal-tab__reset-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(127, 192, 255, 0.45);
+  background: rgba(20, 33, 48, 0.95);
+  color: #cfe5ff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.causal-tab__reset-btn:hover {
+  border-color: rgba(127, 192, 255, 0.8);
+  background: rgba(34, 56, 79, 0.95);
+  color: #ffffff;
+}
+
+/* ── DAG View Toggle ── */
+.dag-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dag-view-toggle__option {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--text-dim);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.dag-view-toggle__option--active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.causal-tab__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.causal-tab__dag-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  height: 100%;
+}
+
+.causal-tab__outcomes {
+  width: 360px;
+  min-width: 300px;
+  max-width: 400px;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 1100px) {
+  .causal-tab__outcomes {
+    width: 300px;
+    min-width: 260px;
+  }
+}
