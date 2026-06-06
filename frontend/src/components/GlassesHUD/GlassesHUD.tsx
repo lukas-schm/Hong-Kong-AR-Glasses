@@ -254,7 +254,7 @@ export function GlassesHUD({ patient, onClose, assistant, mirror = false, embedd
 
         {/* ── Left fixed: patient + top concerns ── */}
         <aside className="ghud-left">
-          <div className="ghud-name">{patient ? patient.name : 'CDSS'}</div>
+          <div className="ghud-name">{patient ? patient.name : ''}</div>
           <div className="ghud-meta">{patient ? patient.subtitle : 'no patient loaded'}</div>
           <ul className="ghud-flags">
             {flags.map((f) => (
