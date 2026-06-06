@@ -1,0 +1,259 @@
+/* Even Realities G2 HUD — lean monochrome green waveguide */
+
+.ghud-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ghud-display {
+  --g: #6cff9a;
+  --g-dim: #2f7a4c;
+  --g-faint: rgba(108, 255, 154, 0.14);
+  position: relative;
+  width: 900px;
+  height: 300px;
+  max-width: 96vw;
+  background: #000;
+  font-family: var(--font-mono);
+  color: var(--g);
+  text-shadow: 0 0 6px rgba(108, 255, 154, 0.4);
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr 40px;
+  grid-template-areas:
+    'left right'
+    'bottom bottom';
+  gap: 0;
+}
+
+/* ── Left: patient + concerns ── */
+.ghud-left {
+  grid-area: left;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ghud-name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.ghud-meta {
+  font-size: 11px;
+  color: var(--g-dim);
+  margin-bottom: 8px;
+}
+
+.ghud-flags {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ghud-flag {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.ghud-flag__val {
+  margin-left: auto;
+  color: var(--g-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.ghud-flag--crit { font-weight: 600; }
+
+.ghud-flag--warn {
+  color: var(--g-dim);
+  text-shadow: 0 0 4px rgba(108, 255, 154, 0.2);
+}
+
+/* ── Right: cards ── */
+.ghud-right {
+  grid-area: right;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px 18px 8px;
+  position: relative;
+}
+
+.ghud-tab {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--g-dim);
+}
+
+.ghud-pager { font-variant-numeric: tabular-nums; }
+
+.ghud-cards {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+.ghud-cards::-webkit-scrollbar { display: none; }
+
+.ghud-card {
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+}
+
+.ghud-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+.ghud-dcard { gap: 2px; }
+
+.ghud-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.ghud-head__action {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ghud-head__mort {
+  font-size: 13px;
+  color: var(--g-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.ghud-sub {
+  font-size: 11px;
+  color: var(--g-dim);
+  margin-bottom: 2px;
+}
+
+/* sparkline */
+.ghud-svg {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.ghud-line { fill: none; }
+
+.ghud-line--rec {
+  stroke: var(--g);
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 3px rgba(108, 255, 154, 0.6));
+}
+
+.ghud-line--alt {
+  stroke: var(--g-dim);
+  stroke-width: 1.2;
+  opacity: 0.5;
+}
+
+.ghud-svg-label {
+  fill: var(--g);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ghud-svg-label--alt {
+  fill: var(--g-dim);
+  font-size: 9px;
+  font-family: var(--font-mono);
+  opacity: 0.65;
+}
+
+.ghud-axis-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--g-dim);
+}
+
+/* single-fact sentence card */
+.ghud-sentence {
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  max-width: 88%;
+}
+
+/* dots */
+.ghud-dots {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ghud-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--g-dim);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ghud-dot--active {
+  background: var(--g);
+  box-shadow: 0 0 5px rgba(108, 255, 154, 0.8);
+}
+
+/* ── Bottom: the plan ── */
+.ghud-bottom {
+  grid-area: bottom;
+  border-top: 1px solid var(--g-faint);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  padding: 0 16px;
+}
+
+.ghud-plan {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ghud-plan__axis {
+  font-size: 10px;
+  color: var(--g-dim);
+}
+
+.ghud-plan__action {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@media (max-width: 960px) {
+  .ghud-display { width: 96vw; height: 32vw; }
+}

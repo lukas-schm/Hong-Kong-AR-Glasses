@@ -10,3 +10,25 @@
   min-height: 0;
   overflow: hidden;
 }
+
+.g2-hud-toggle {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 900;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #5cff8a;
+  background: #061008;
+  border: 1px solid #2f9e54;
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(92, 255, 138, 0.18);
+}
+
+.g2-hud-toggle:hover {
+  background: #0a1c0e;
+  box-shadow: 0 0 18px rgba(92, 255, 138, 0.35);
+}
