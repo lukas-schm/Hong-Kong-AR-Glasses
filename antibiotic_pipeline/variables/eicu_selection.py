@@ -92,7 +92,7 @@ def _eicu_lab_features(stays: pd.DataFrame) -> pd.DataFrame:
 def _eicu_vital_features(stays: pd.DataFrame) -> pd.DataFrame:
     """Latest temperature and MAP at or before T0."""
     vital = pl.scan_parquet(DIR2EICU / "vitalperiodic.parquet").select(
-        ["patientunitstayid", "observationoffset", "temperature", "noninvasivemean"]
+        ["patientunitstayid", "observationoffset", "temperature", "systemicmean"]
     )
     stays_pl = pl.from_pandas(stays).rename({COLNAME_ICUSTAY_ID: "patientunitstayid"})
     df = (
@@ -102,7 +102,7 @@ def _eicu_vital_features(stays: pd.DataFrame) -> pd.DataFrame:
         .group_by("patientunitstayid")
         .agg([
             pl.last("temperature").alias("temperature_at_decision"),
-            pl.last("noninvasivemean").alias("MAP_at_decision"),
+            pl.last("systemicmean").alias("MAP_at_decision"),
         ])
         .collect()
         .to_pandas()

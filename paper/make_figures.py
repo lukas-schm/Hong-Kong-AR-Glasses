@@ -270,7 +270,8 @@ def fig_permutation():
         ax.set_xlabel("ATE (pp)")
         ax.legend(fontsize=6, frameon=False, loc="upper left")
     axes[0].set_ylabel("Permutations")
-    fig.suptitle("Figure 7.  Permutation-label placebo null distribution (5 shuffles per pair)",
+    n_perm = int(len(df[df["kind"] == "permutation"]) // 3)
+    fig.suptitle(f"Figure 7.  Permutation-label placebo null distribution ({n_perm} shuffles per pair)",
                  fontsize=10, fontweight="bold", y=1.02)
     fig.tight_layout()
     fig.savefig(OUT / "fig7_permutation.pdf")

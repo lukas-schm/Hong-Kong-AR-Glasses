@@ -253,7 +253,10 @@ class MultiArmInferenceWrapper(BaseEstimator):
             # F18: route through econml's CausalForestDML so nuisance models
             # are cross-fit (orthogonalisation) and honest splits are used
             # for valid inference — directly comparable to the DML family.
+            # CausalForestDML requires X (CATE features); fall back to W when
+            # no separate X_cate is supplied (pure ATE setting).
             from econml.dml import CausalForestDML
+            X_cf = X_ if X_cate is None else X_cate
             learner = CausalForestDML(
                 model_t=model_t,
                 model_y=model_y,
@@ -265,7 +268,7 @@ class MultiArmInferenceWrapper(BaseEstimator):
                 honest=True,
                 random_state=RANDOM_STATE,
             )
-            learner.fit(y, a, X=X_cate, W=X_, inference="auto")
+            learner.fit(y, a, X=X_cf, W=X_, inference="auto")
 
         else:
             raise ValueError(f"Unknown EconML method: {self.estimation_method}")
@@ -283,7 +286,9 @@ class MultiArmInferenceWrapper(BaseEstimator):
             )
 
         if self.estimation_method in ECONML_CATE_LEARNERS:
-            ate_inf = self.inference_estimator_.ate_inference(X=None)
+            # CausalForestDML was fit with X=X_ so requires the same X here
+            X_ate = X_ if self.estimation_method == "CausalForest" else None
+            ate_inf = self.inference_estimator_.ate_inference(X=X_ate)
             results[RESULT_ATE] = ate_inf.mean_point
             results[RESULT_ATE_LB], results[RESULT_ATE_UB] = ate_inf.conf_int_mean()
 

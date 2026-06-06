@@ -3,6 +3,7 @@ mimic-iv/
 mimic-code/
 data/
 cachedir/
+physionet.org/
 
 # Logs and stdout
 *.log

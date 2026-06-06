@@ -13,6 +13,7 @@ Usage
     python -m antibiotic_pipeline.experiments.sensitivity_antibiotic
 """
 
+import gc
 import itertools
 from pathlib import Path
 from typing import List
@@ -235,6 +236,10 @@ def run_sensitivity_grid(
         # Log estimate to disk
         exp_dir = experiences_folder / f"{outcome}_{method}_{arm_a}v{arm_b}_{feature_set_name}"
         log_estimate(row, str(exp_dir / "logs"))
+
+        del wrapper
+        if len(all_results) % 10 == 0:
+            gc.collect()
 
         logger.info(
             f"  {outcome} | {method:15s} | {arm_a}v{arm_b} | "

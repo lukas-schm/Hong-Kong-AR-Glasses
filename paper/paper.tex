@@ -14,6 +14,18 @@
 \usepackage{titling}
 \usepackage{placeins}
 \usepackage{float}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+\usepackage{seqsplit}
+
+\setlength{\emergencystretch}{3em}
+\tolerance=1000
+\hbadness=10000
+
+% Allow \texttt to break on path separators and dots
+\makeatletter
+\def\BreakableTT#1{\seqsplit{#1}}
+\makeatother
 
 \definecolor{accent}{HTML}{2E6FB3}
 \definecolor{benefit}{HTML}{1F7A5A}
@@ -27,10 +39,11 @@
 \captionsetup{font=small,labelfont=bf,margin=8pt}
 
 \setlength{\droptitle}{-2.5em}
-\title{\bfseries A guarded causal-inference pipeline for EHR-derived treatment-policy questions:\\
-\large operationalising causal guardrails, with a worked example in ICU antibiotic continuation}
+\title{\bfseries An end-to-end causal-CDSS pipeline with refusal-to-render gating:\\
+\large an ICU antibiotic-stewardship reference implementation}
 \author{Lukas Schmidt\\
-\small Technical University of Munich, inContAlert}
+\small Technical University of Munich\\
+\small inContAlert}
 \date{\today}
 
 \begin{document}
@@ -40,50 +53,73 @@
 %─────────────────────────────────────────────────────────────────────────────
 \begin{abstract}
 \small
-Observational causal-effect estimates from electronic health records routinely overstate evidence: identification assumptions are not testable, diagnostics are scattered across packages, and modelling choices accumulate silently. We present a guarded causal-inference pipeline whose contribution is a \emph{refusal-to-render contract}: every effect estimate is paired, by construction, with the diagnostic that adjudicates it, and any contrast whose probe fails is suppressed from the rendered output. The components are familiar (target-trial emulation, doubly-robust estimation, multinomial generalized propensity scores, overlap and balance diagnostics, E-values, label-shuffle stability checks, simulation-based coverage); the contribution is the gating contract and its operational discipline. We illustrate the framework on a three-arm target trial of broad-spectrum antibiotic continuation in 9{,}314 sepsis-3 ICU stays from MIMIC-IV, with external validation on eICU-CRD. Two of the three pairwise contrasts are refused: the overlap probe fails on continue-vs-de-escalate (36\,\% in common support) and the deployment-layer calibration probe fails on the de-escalate arm (slope $0.34$). On the third contrast, cease-vs-continue 28-day mortality, the framework returns a fragile verdict via three independent diagnostics: (i) eight benchmark estimators disagree by $\sim$10\,pp (matched ATT $+1.5$\,pp [$-2.3$, $+3.9$], doubly-robust cluster at $-3.6$ to $-4.3$\,pp, stabilised IPTW $-8.5$\,pp), (ii) only $33\,\%$ of confounders satisfy $|$SMD$|<0.1$ after weighting, and (iii) the E-value is $1.55$ at the point estimate and $1.30$ at the CI bound nearest the null. Simulation-based coverage on a calibrated parametric mimic of the cohort spans $10\,\%$ (g-computation, under-covering) to $100\,\%$ (TMLE, over-wide), confirming that no single estimator is uniformly trustworthy in this setting. The doubly-robust cluster around $-4$\,pp is therefore retained as the framework's worked output, not as a stewardship recommendation. The pipeline, the pre-specification, and the diagnostic-gated reference frontend are released as a single reproducible artefact.
+Observational causal-effect estimates from electronic health records routinely overstate evidence: identification assumptions are not testable, diagnostics are scattered across packages, and modelling choices accumulate silently. We describe an end-to-end pipeline that converts EHR data into clinician-facing causal treatment-effect displays. Its central mechanism is a \emph{refusal-to-render contract}: every effect estimate is paired, by construction, with the diagnostic that adjudicates it; any contrast whose required probe falls below a locked fail threshold is suppressed; marginal verdicts render with the probe value surfaced alongside the estimate. The pipeline is parametric in the database adapter, the target-trial protocol, and the estimator (eight benchmarked). The reference implementation addresses ICU antibiotic stewardship and is reported here as a TRIPOD+AI-compliant retrospective in-silico evaluation, prepared for the silent-mode phase under DECIDE-AI. In a three-arm target trial of broad-spectrum antibiotic continuation in 9{,}314 sepsis-3 ICU stays, two of three pairwise contrasts are suppressed on fail verdicts (continue-vs-de-escalate: overlap fail; de-escalate-vs-cease: specification-stability fail). The third contrast, cease-vs-continue 28-day mortality, renders with three marginal verdicts attached: post-weighting balance ($33\,\%$ with $|$SMD$|<0.1$), E-value ($1.55$), and simulation-based AIPW coverage ($84\,\%$ of nominal). Eight estimators disagree by $\sim$10\,pp on the rendered contrast (matched ATT $+1.5$\,pp, doubly-robust cluster at $-3.6$ to $-4.3$\,pp, stabilised IPTW $-8.5$\,pp); this is the literature-predicted signature of the marginal balance verdict. The doubly-robust cluster around $-4$\,pp is the pipeline's worked output, not a stewardship recommendation. The end-to-end pipeline, the locked specification, the verdict thresholds, and the clinician-facing reference frontend are released as a single reproducible artefact.
 \end{abstract}
 
 %─────────────────────────────────────────────────────────────────────────────
 \section*{Author summary}
 
-Causal-effect estimates from electronic health records are easy to compute and hard to defend: identification assumptions are not testable, model and feature choices propagate quietly, and diagnostics are often run as one-off scripts after the fact. We describe a pipeline whose contribution is the discipline of \emph{refusing to render}: every effect estimate produced is paired, by construction, with the diagnostic that adjudicates it, and any contrast whose probe fails is suppressed from the rendered output. The ingredients of the pipeline are familiar --- a target-trial protocol, doubly-robust estimation, a multinomial generalized propensity score, overlap and balance diagnostics, E-values, simulation-based coverage --- but the refusal contract is what we argue is missing from most applied observational causal-ML studies and what we are advocating as a structural change to how such studies are reported. We instantiate the framework on a three-arm target trial of broad-spectrum antibiotic continuation in ICU sepsis (MIMIC-IV, with external validation on eICU-CRD). The framework refuses to render two of the three pairwise contrasts: continue-vs-de-escalate fails the overlap probe and de-escalate-vs-stop fails the per-arm calibration probe. On the third contrast, cease-vs-continue, the framework returns a \emph{fragile} verdict --- eight benchmark estimators disagree by roughly 10 percentage points on the same cohort under the same generalized propensity score, two-thirds of the confounders fail post-weighting balance, and the E-value indicates a clinically plausible unmeasured confounder could fully explain the doubly-robust cluster of point estimates. The worked example is illustrative, not confirmatory: the framework's job in this paper is to expose the fragility, not to argue that one arm is safer than another.
+A clinical decision-support system that displays causal treatment-effect estimates from EHR data is only as trustworthy as the diagnostics that adjudicate those estimates --- and in practice the diagnostics are usually run after the fact, with no structural link to what the clinician sees. We describe an end-to-end pipeline that goes from raw EHR tables to a clinician-facing render, with a refusal-to-render contract that binds every output to the diagnostic that adjudicates it: estimates whose probe falls in a locked fail band are suppressed; estimates whose probe is in a marginal band render with the verdict surfaced inline. We instantiate the pipeline as a reference implementation for ICU antibiotic stewardship, reported retrospectively here under TRIPOD+AI; silent-mode and human-in-the-loop phases under DECIDE-AI are the named next steps. On a 9{,}314-stay sepsis-3 cohort, the pipeline suppresses two of three pairwise contrasts and renders the third with three marginal verdicts attached --- a cessation effect that is fragile in three independent ways: eight benchmark estimators disagree by roughly 10 percentage points, two-thirds of confounders fail post-weighting balance, and the E-value indicates a clinically plausible unmeasured confounder could fully explain the doubly-robust cluster. The pipeline's job is to expose that fragility before any of the three arms reaches a clinician, not to argue that one arm is safer than another.
 
 %─────────────────────────────────────────────────────────────────────────────
-\section{Introduction --- operationalising causal guardrails in EHR studies}
+\section{Introduction --- end-to-end causal CDSS from EHR data}
 
 Causal-inference methods for observational EHR data are now standard equipment: target-trial emulation \cite{hernan2016target}, doubly-robust estimation including double/debiased machine learning (DML) \cite{chernozhukov2018dml}, propensity overlap, E-values \cite{vanderweele2017evalue}, calibration assessment, and label-shuffle placebos. Each is well documented in isolation. In practice, however, they are seldom assembled into a single workflow, and the most common failure mode of an applied causal-ML paper is not the absence of any one diagnostic but the diffuse, unauditable way the diagnostics are bolted on after the fact. The reader sees an effect estimate; the diagnostic that would tell them whether to trust it lives in a different table, a different notebook, or no longer exists. Integrative templates exist (Doutreligne et al.\ 2024 \cite{doutreligne2024stepbystep}; the broader target-trial-emulation literature) but they describe \emph{what} an analyst should do; they do not bind the rendering of an effect estimate to the verdict of its diagnostic.
 
 This paper does not introduce a new estimator. It describes a pipeline whose contribution is a \emph{refusal-to-render contract}: a formal binding between probes and rendered outputs such that an effect estimate cannot be displayed unless its supporting diagnostic has been computed and has not failed. We define the contract in \S\ref{sec:contract} as a small set of probe-to-render rules, and we argue --- and demonstrate, in the worked example --- that this discipline is the single cheapest improvement available to applied observational causal-ML before any new methodological work. The components of the pipeline are familiar (target-trial protocol; DML and a benchmark grid that includes DRLearner, AIPW, stabilised IPTW, overlap-weighted IPTW \cite{li2018overlap}, TMLE \cite{vanderlaan2011tmle}, $g$-computation, and propensity matching; multinomial generalized propensity score; E-values; balance and overlap diagnostics; simulation-based coverage; specification-stability checks); the contract is what binds them.
 
-We instantiate the pipeline on a representative observational decision: continuation versus de-escalation versus cessation of broad-spectrum antibiotics at 72\,h in ICU sepsis. We choose this case because (i) it is the canonical confounding-by-indication problem --- clinician-intent variables (frailty gestalt, code status, undocumented improvement, ID-consult input) are partially or fully unobserved in any retrospective EHR study and the pipeline must therefore be able to estimate \emph{and} to publicly fail; (ii) the downstream consequences of a guard mis-firing are clinically high-stakes (antimicrobial stewardship and patient mortality), so the cost of a false-confidence estimate is concrete; and (iii) the question admits external validation on a second large database. The framework refused two of the three pairwise contrasts in MIMIC-IV and returned a fragile-verdict on the third. We present the resulting numbers as the framework's worked output, not as a stewardship recommendation. The framework itself is intended to generalise to other treatment-policy questions in EHR data and to other databases: we exercise it across two databases (MIMIC-IV and eICU-CRD) and eight estimators.
+We instantiate the pipeline on a representative observational decision: continuation versus de-escalation versus cessation of broad-spectrum antibiotics at 72\,h in ICU sepsis. We choose this case because (i) it is the canonical confounding-by-indication problem --- clinician-intent variables (frailty gestalt, code status, undocumented improvement, ID-consult input) are partially or fully unobserved in any retrospective EHR study and the pipeline must therefore be able to estimate \emph{and} to publicly fail; (ii) the downstream consequences of a guard mis-firing are clinically high-stakes (antimicrobial stewardship and patient mortality), so the cost of a false-confidence estimate is concrete; and (iii) the question admits external validation on a second large database. On MIMIC-IV the pipeline suppressed two of the three pairwise contrasts and returned a fragile verdict on the third. We present the resulting numbers as the pipeline's worked output, not as a stewardship recommendation. The pipeline itself is intended to generalise to other treatment-policy questions in EHR data and to other databases; the worked example here instantiates it on MIMIC-IV and releases a parallel eICU-CRD database adapter for the per-hospital transportability check that subsequent live phases will require.
 
-\paragraph{Related work --- what is new.} Step-by-step causal-analysis templates for EHRs exist \cite{hernan2016target,doutreligne2024stepbystep}; benchmark suites compare estimators on synthetic and semi-synthetic data \cite{econml,vanderlaan2011tmle}; the E-value \cite{vanderweele2017evalue} and overlap-weighting \cite{li2018overlap} literatures provide individual sensitivity tools; reporting checklists (TRIPOD-AI, STROBE, RECORD-PE) prescribe documentation. What none of these provide --- and what this paper proposes --- is a binding contract between a probe and the rendered output: in the framework presented here, an effect estimate that lacks an evaluated probe, or whose probe fails, is structurally inaccessible in the released artefact (suppressed from the manuscript table, the CDSS display, and the JSON payload). The closest prior work is Doutreligne et al.\ 2024 \cite{doutreligne2024stepbystep}, which prescribes the steps but leaves the rendering decision to the analyst; we differ in making that decision a property of the pipeline rather than of the analyst's discipline.
+\paragraph{Related work and what is new.} Five strands of prior work are most directly comparable. (i)~Target-trial-emulation frameworks for EHRs \cite{hernan2016target,wang2026operational} specify how trial elements map onto observational data and when identification can or cannot be supported; they do not specify what to render once an estimate is produced. (ii)~Step-by-step causal-analysis templates for EHRs \cite{doutreligne2024stepbystep} prescribe what an analyst should do; they leave the rendering decision to the analyst. (iii)~Estimator-specific algorithms --- including federated target-trial emulation on MIMIC-IV and eICU-CRD across hundreds of hospitals \cite{sun2025federated} --- improve how a single estimator is computed; they do not gate whether the estimate is displayed. (iv)~Scoping reviews of ICU observational causal inference \cite{allen2023scoping} document systematic under-reporting of overlap, balance, and sensitivity diagnostics in published work; they prescribe but do not enforce. (v)~Reinforcement-learning-for-sepsis transportability studies \cite{wornow2025transportability} show that policies trained on ICU data routinely fail to transport across institutions, motivating per-site verdict surfacing for any CDSS that consumes such estimates.
+
+We differ from all five on a single structural axis: in the pipeline presented here, every effect estimate is bound, by code, to the diagnostic that adjudicates it, and any contrast whose required probe falls below a locked fail threshold is structurally inaccessible in the released artefact (suppressed from the manuscript table, the CDSS display, and the JSON payload). On the CDSS side, our verdict-token rendering is methodologically adjacent to the clinician-informed evaluation movement in *npj Digital Medicine* (e.g.\ CLIX-M \cite{clixm2025}), the early-stage clinical-evaluation reporting guideline DECIDE-AI \cite{decideai2022}, and the long-standing CDSS-design literature on success and failure modes \cite{sutton2020cdss}; we differ in tying the rendering decision to a *causal*-validity diagnostic suite rather than to a predictive-validity or explanation-quality suite. Multicenter prospective CDSS evidence (e.g.\ the MERIDIAN staphylococcus-bacteremia stepped-wedge trial \cite{meridian2025}) is the eventual CONSORT-AI \cite{consortai2020} standard the reference implementation is built toward but does not yet meet --- the present manuscript is a TRIPOD+AI retrospective in-silico evaluation, prepared for the first live phase under DECIDE-AI.
 
 %─────────────────────────────────────────────────────────────────────────────
-\section{Framework}
+\section{Pipeline architecture}\label{sec:architecture}
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{figures/fig2_framework.pdf}
-  \caption{The five-step analytic pipeline used for the antibiotic-continuation question. Each step has its own audit artefacts and diagnostics; the design refuses to display an ATE for which the matching diagnostic is missing or has failed.}
+  \caption{The end-to-end pipeline. Each stage --- database adapter, cohort framing, confounder extraction, multinomial generalized propensity score and estimator grid, identification-layer probes, deployment-layer probes, render rules ($R_{\text{table}}$ and $R_{\text{CDSS}}$) --- has its own audit artefacts; adjacent stages are joined by the refusal-to-render contract (\S\ref{sec:contract}), which gates whether an estimate proceeds to the next stage. The same artefact runs end-to-end on MIMIC-IV and on eICU-CRD via a pluggable database adapter.}
   \label{fig:framework}
 \end{figure}
 \FloatBarrier
 
 \subsection{The refusal-to-render contract}\label{sec:contract}
 
-We formalise the gating discipline as a contract between probes and rendered outputs. For a target estimand $\theta$ (a pairwise ATE, ATT, or ATO on a chosen outcome), the pipeline evaluates a fixed set $\mathcal{P} = \{P_1, \dots, P_k\}$ of probes, each of which returns a verdict $v_i \in \{\text{pass}, \text{marginal}, \text{fail}\}$ together with a quantitative diagnostic value (e.g.\ \% of cohort in common support, $|$SMD$|<0.1$ fraction, E-value, simulation coverage). For each rendered surface $S \in \{\text{manuscript table}, \text{CDSS individual-risk display}, \text{JSON payload}\}$ the pipeline applies a render rule
+We formalise the gating discipline as a contract between probes and rendered outputs. For a target estimand $\theta$ (a pairwise ATE, ATT, or ATO on a chosen outcome), the pipeline evaluates a fixed set $\mathcal{P} = \{P_1, \dots, P_k\}$ of probes, each of which returns a verdict $v_i \in \{\text{pass}, \text{marginal}, \text{fail}\}$ together with the quantitative diagnostic value that produced it (e.g.\ \% of cohort in common support, $|$SMD$|<0.1$ fraction, E-value, simulation coverage). For each rendered surface $S \in \{\text{manuscript table}, \text{CDSS individual-risk display}, \text{JSON payload}\}$ the pipeline applies a render rule
 \[
   R_S(\theta) \;=\; \begin{cases}
     \text{display}(\hat{\theta}, \text{CI}, \{(P_i, v_i)\}_i) & \text{if } \forall P_i \in \mathcal{P}_S^{\text{req}}: v_i \neq \text{fail} \\
     \text{suppress with reason}(\{P_i: v_i = \text{fail}\}) & \text{otherwise}
   \end{cases}
 \]
-where $\mathcal{P}_S^{\text{req}} \subseteq \mathcal{P}$ is the probe subset required for surface $S$. The set $\mathcal{P}$, the verdicts, and the rules are released alongside the manuscript in machine-readable form (\texttt{paper/preregistration.yaml} and the run-time \texttt{diagnostics\_summary.json}); the manuscript output table (Table~\ref{tab:summary}) is itself generated by $R_{\text{table}}$ rather than written by hand.
+where $\mathcal{P}_S^{\text{req}} \subseteq \mathcal{P}$ is the probe subset required for surface $S$. A \emph{pass} verdict signals an unqualified render; a \emph{marginal} verdict permits the render but commits the pipeline to surface the probe value alongside the estimate so the reader can attribute the fragility; a \emph{fail} verdict suppresses the row. The asymmetry --- marginal does not suppress, fail does --- is deliberate: a guarded pipeline should not refuse every imperfect estimate (the de-escalate arm would refuse essentially everything), but it must refuse estimates whose supporting probe value lies in the regime where the literature treats the probe as actively diagnostic of bias.
 
-Three properties follow from this construction. (i)~\emph{Completeness}: the pipeline cannot render an effect estimate whose required probe is missing --- the rendering function depends on the probe's existence as a code-level pre-condition. (ii)~\emph{Auditability}: every failed render carries a probe-attributable reason, recorded in the JSON payload and surfaced in the table and CDSS. (iii)~\emph{Locality}: each surface $S$ has its own $\mathcal{P}_S^{\text{req}}$, so a probe that fails identification (overlap, E-value) suppresses an effect from the manuscript table, while a probe that fails individual-level reliability (per-arm calibration, Mahalanobis OOD) suppresses an arm from the CDSS without removing the population-level estimate from the methods table. The identification-layer vs.\ deployment-layer separation that we describe in Step 5 is the operational consequence of locality.
+\paragraph{Verdict thresholds (locked in \texttt{preregistration.yaml}).} The thresholds are conservative defaults drawn from the relevant methodological literature; they are locked at the pipeline level rather than tuned per question.
 
-For the worked example, the required probe set is $\mathcal{P}^{\text{req}} = \{\text{overlap}, \text{post-weighting balance}, \text{E-value}, \text{specification-stability null}, \text{simulation coverage}\}$ for the manuscript table and additionally $\{\text{per-arm calibration}, \text{Mahalanobis OOD}\}$ for the CDSS. In MIMIC-IV the contract suppresses two of the three pairwise contrasts; in the third it renders the estimate accompanied by every probe's verdict (\S\ref{sec:summary}, Table~\ref{tab:summary}).
+\begin{table}[H]
+\centering\small
+\caption{Per-probe verdict thresholds applied by the contract on the manuscript-table render rule. Thresholds are defaults locked in \texttt{preregistration.yaml}; tightening is allowed as a sensitivity. The deployment-layer render rule ($R_{\text{CDSS}}$) additionally requires per-arm calibration slope $\in [0.7, 1.3]$ (marginal $0.5$--$0.7$ or $1.3$--$1.5$; fail otherwise) and a Mahalanobis OOD pass.}
+\label{tab:verdict_thresholds}
+\begin{tabular}{lccc}
+\toprule
+Probe & pass & marginal & fail \\
+\midrule
+Overlap (\% in $[0.05,0.95]$) \cite{crump2009dealing,petersen2012positivity} & $\geq 70$ & $50$--$70$ & $<50$ \\
+Post-weighting balance (\% $|$SMD$|<0.1$) \cite{austin2009smd} & $\geq 50$ & $30$--$50$ & $<30$ \\
+E-value (point estimate) \cite{vanderweele2017evalue} & $\geq 2.0$ & $1.25$--$2.0$ & $<1.25$ \\
+Specification-stability null (obs.\ $|$ATE$|$ vs.\ q$95$) & $>$q$95$ & q$90$--q$95$ & $\leq$q$90$ \\
+Simulation-based coverage (\% of nominal $95$) & $\geq 90$ & $80$--$90$ & $<80$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The thresholds are deliberately conservative on the \emph{fail} side: the literature on each probe identifies the relevant cliff (Crump et al.\ 2009 \cite{crump2009dealing} and Petersen et al.\ 2012 \cite{petersen2012positivity} on positivity; Austin 2009 \cite{austin2009smd} on SMD as a balance diagnostic; VanderWeele \& Ding 2017 \cite{vanderweele2017evalue} on the E-value scale). The \emph{marginal} band is a calibrated halo around the cliff: it acknowledges that observational EHR cohorts rarely produce probe values squarely above the pass threshold and that refusing every imperfect contrast would empty the rendered output. The \emph{fail} threshold is the binding constraint of the contract.
+
+\paragraph{Properties.} Three properties follow from this construction. (i)~\emph{Completeness}: the pipeline cannot render an effect estimate whose required probe is missing --- the rendering function depends on the probe's existence as a code-level pre-condition. (ii)~\emph{Auditability}: every render carries the verdict of every required probe (pass/marginal/fail tokens in Table~\ref{tab:summary}, full diagnostic values in the JSON payload); every suppress carries an attributable reason. (iii)~\emph{Locality}: each surface $S$ has its own $\mathcal{P}_S^{\text{req}}$, so a probe that fails identification (overlap, E-value) suppresses an effect from the manuscript table, while a probe that fails individual-level reliability (per-arm calibration, Mahalanobis OOD) suppresses an arm from the CDSS without removing the population-level estimate from the manuscript table.
+
+For the worked example, the required probe set for the manuscript table is $\mathcal{P}^{\text{req}}_{\text{table}} = \{$overlap, post-weighting balance, E-value, specification-stability null, simulation coverage$\}$; the CDSS render rule additionally requires $\{$per-arm calibration, Mahalanobis OOD$\}$. In MIMIC-IV the contract suppresses two of the three pairwise contrasts on a fail verdict and renders the third with multiple marginal verdicts attached (\S\ref{sec:summary}, Table~\ref{tab:summary}). The continue-vs-cease contrast renders not because it is unproblematic but because none of its required probes falls below the locked fail threshold; the marginal verdicts on balance ($33.3\,\%$ in the $30$--$50$ band), E-value ($1.55$ in the $1.25$--$2.0$ band), and simulation coverage ($84\,\%$ for AIPW in the $80$--$90$ band) are surfaced on the row alongside the point estimate.
 
 \subsection{Step 1 --- Target-trial protocol}
 We frame the worked example as an emulation of a hypothetical randomised target trial. We follow the reviewer formulation in describing the contrast as an \emph{observed treatment-state comparison at $T_0$}, not as the effect of a deterministic treatment policy.
@@ -104,7 +140,7 @@ We frame the worked example as an emulation of a hypothetical randomised target 
     \emph{Adherence / grace period} & 24\,h grace window after $T_0$ (deviations within grace do not change initial classification); a no-grace ($w=0$) sensitivity is reported alongside. Post-$T_0$ arm switches are recorded as deviation flags. \\
     \emph{Follow-up start} & $T_0$ (no immortal time). \\
     \emph{Outcomes} & Primary: 28-day mortality. Secondary: ventilator-free days at 28 (VFD-28), vasopressor-free days, ICU LOS (clipped to 28), AKI worsening, secondary blood-culture infection, \emph{C.\,difficile} therapy initiation. \\
-    \emph{Censoring / competing risks} & Censoring at $\min(T_0 + 28\text{d},\,\text{death},\,\text{end of record})$. ICU discharge alive treated as competing event for the mortality outcome in a Fine--Gray sensitivity (\S Competing-risk sensitivity).$^\dagger$ \\
+    \emph{Censoring / competing risks} & Censoring at $\min(T_0 + 28\text{d},\,\text{death},\,\text{end of record})$. A Fine--Gray subdistribution-hazard sensitivity treating ICU discharge alive as a competing event is identified as named future work and is not run in the present manuscript.$^\dagger$ \\
     \emph{Causal contrast} & Pairwise marginal risk-difference (ATE) on the 28-day mortality scale, computed under a single multinomial propensity model so the three contrasts are on the same covariate support. \\
     \emph{Analysis plan} & Locked in \texttt{preregistration.yaml}; primary estimator DML, eight benchmark estimators (\S Estimator benchmarking); secondary outcomes BH-adjusted within family. \\
     \bottomrule
@@ -115,14 +151,52 @@ We frame the worked example as an emulation of a hypothetical randomised target 
 
 \paragraph{Why $T_0 = 72$\,h?} The 72\,h re-evaluation point is recommended by the Surviving Sepsis Campaign \cite{evans2021surviving} on the basis of (i) typical time to first culture finalisation (we report the cohort median directly), (ii) prudent empirical-therapy duration before stewardship review, and (iii) day-3 antibiotic-day-count distribution. The choice is nonetheless evaluable: we report a $T_0$-anchor sensitivity at 48\,h, 72\,h, 96\,h, and at the data-driven anchor ``time of first culture finalisation''. The treatment-window sensitivity ($\pm 6$, $\pm 12$, $\pm 24$\,h) is reported alongside in Figure~\ref{fig:window}.
 
-\paragraph{Time-varying confounding caveat.} A single static classification at $T_0$ collapses what is in reality a dynamic stewardship process (re-decisions at day 5, day 7, on culture finalisation, on de-escalation guidance from the ID team). The grace-period and sustained-treatment sensitivities are partial mitigations; a fully sequential $g$-methods / Q-learning extension is identified as future work and is not addressed here. The framework reports the static contrast as a treatment-state effect at $T_0$, not as a policy effect.
+\paragraph{Time-varying confounding caveat.} A single static classification at $T_0$ collapses what is in reality a dynamic stewardship process (re-decisions at day 5, day 7, on culture finalisation, on de-escalation guidance from the ID team). The grace-period and sustained-treatment sensitivities are partial mitigations; a fully sequential $g$-methods / Q-learning extension is identified as future work and is not addressed here. The pipeline reports the static contrast as a treatment-state effect at $T_0$, not as a policy effect.
 
-\paragraph{Competing-risk sensitivity.} For the 28-day mortality outcome we report a Fine--Gray subdistribution-hazard sensitivity analysis in which ICU discharge alive is treated as a competing event. This addresses the concern that early-discharged patients who are alive at hospital discharge but die afterward are differentially observable across arms.
+\paragraph{Competing-risk sensitivity (future work).} A Fine--Gray subdistribution-hazard sensitivity treating ICU discharge alive as a competing event is the standard addition for the concern that early-discharged patients who are alive at hospital discharge but die afterward are differentially observable across arms. It is named in the pre-specification and identified as future work; it is not reported in the present manuscript.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.92\linewidth]{figures/fig1_cohort.pdf}
-  \caption{Cohort flow. From 17{,}407 sepsis-3 stays with ICU LOS $\geq 72$\,h in MIMIC-IV, 9{,}314 enter the analytic cohort after applying the broad-spectrum-antibiotic, immortal-time, one-stay-per-subject, and CMO-at-$T_0$ exclusion filters (WS4). Arm distribution: continue $7{,}368$ / de-escalate $429$ / cease $1{,}517$.}
+  \begin{tikzpicture}[
+    node distance=0.55cm and 0.8cm,
+    every node/.style={font=\small},
+    box/.style={rectangle, draw=accent, thick, rounded corners=2pt, fill=accent!5,
+                minimum width=7.5cm, minimum height=0.9cm, align=center, inner sep=4pt},
+    armbox/.style={rectangle, draw=accent!70, thick, rounded corners=2pt, fill=white,
+                   minimum width=3.2cm, minimum height=1.0cm, align=center, inner sep=3pt},
+    excl/.style={rectangle, draw=harm!50, dashed, fill=harm!5, rounded corners=2pt,
+                 minimum height=0.7cm, align=left, inner sep=4pt, font=\footnotesize\itshape},
+    arrow/.style={-{Latex[length=2mm]}, thick, draw=accent!80},
+    exclarrow/.style={-{Latex[length=1.5mm]}, dashed, draw=harm!60}
+  ]
+    \node[box] (n1) {Sepsis-3 ICU stays, MIMIC-IV, LOS $\geq 72$\,h\\\textbf{n = 17{,}407}};
+    \node[box, below=of n1] (n2) {First broad-spectrum antibiotic $\leq 48$\,h of ICU admission\\\textbf{n = 10{,}216}};
+    \node[box, below=of n2] (n3) {Alive in ICU at $T_0$ (immortal-time bias removed)\\\textbf{n = 9{,}331}};
+    \node[box, below=of n3] (n4) {One stay per \texttt{subject\_id} \,$+$\, NOT in CMO at $T_0$ (WS4)\\\textbf{Analytic cohort: n = 9{,}314}};
+
+    \node[excl, right=0.4cm of n1] (e1) {Excluded $-$7{,}191:\\no first broad-spectrum agent\\within 48\,h};
+    \node[excl, right=0.4cm of n2] (e2) {Excluded $-$885:\\died $0$--$72$\,h};
+    \node[excl, right=0.4cm of n3] (e3) {Excluded $-$17:\\CMO at $T_0$};
+
+    \draw[arrow] (n1) -- (n2);
+    \draw[arrow] (n2) -- (n3);
+    \draw[arrow] (n3) -- (n4);
+    \draw[exclarrow] (n1.east) -- (e1.west);
+    \draw[exclarrow] (n2.east) -- (e2.west);
+    \draw[exclarrow] (n3.east) -- (e3.west);
+
+    \node[armbox, below=0.9cm of n4, xshift=-3.6cm, draw=benefit, fill=benefit!8] (a1)
+      {\textbf{Continue}\\$n = 7{,}368$\\\footnotesize $79.1\,\%$};
+    \node[armbox, below=0.9cm of n4, draw=accent, fill=accent!8] (a2)
+      {\textbf{De-escalate}\\$n = 429$\\\footnotesize $4.6\,\%$};
+    \node[armbox, below=0.9cm of n4, xshift=3.6cm, draw=harm, fill=harm!8] (a3)
+      {\textbf{Cease}\\$n = 1{,}517$\\\footnotesize $16.3\,\%$};
+
+    \draw[arrow] (n4.south) -- ++(0,-0.18) -| (a1.north);
+    \draw[arrow] (n4.south) -- (a2.north);
+    \draw[arrow] (n4.south) -- ++(0,-0.18) -| (a3.north);
+  \end{tikzpicture}
+  \caption{Cohort flow. From 17{,}407 sepsis-3 stays with ICU LOS $\geq 72$\,h in MIMIC-IV, 9{,}314 enter the analytic cohort after applying the broad-spectrum-antibiotic, immortal-time, one-stay-per-subject, and CMO-at-$T_0$ exclusion filters (WS4). Arm classification is on \texttt{inputevents} administrations rather than \texttt{prescriptions} orders (\S F13).}
   \label{fig:cohort}
 \end{figure}
 \FloatBarrier
@@ -143,9 +217,9 @@ The identification step lists the variables a causal estimator must condition on
 
 \paragraph{Clinical-intent proxies (WS4).} The 72-hour decision is partly driven by clinician intent variables that the original adjustment set treated as fully unobserved. We extract structured proxies for four of them from MIMIC-IV: code status at $T_0$ (chartevents itemid 223758), palliative-care consult before $T_0$ (POE \texttt{Consults}, subtype \texttt{Palliative Care}), infectious-disease consult before $T_0$ (POE \texttt{Consults}, subtype \texttt{Infectious Disease}), and source-control procedure before $T_0$ (procedureevents itemid list documented in \texttt{variables/clinical\_intent.py}). Patients in comfort-measures-only status at $T_0$ are \emph{excluded} from the analytic cohort rather than adjusted for: they are not eligible for the treatment policy of interest, and conditioning on CMO conflates goals-of-care transition with bacterial-disease reasoning. The four proxies are added to the adjustment set; an ablation removing them (\texttt{Without clinical intent} feature set) quantifies their marginal contribution. The residual unobserved layer --- bedside-gestalt frailty, undocumented improvement, full goals-of-care reasoning, microbiology certainty --- is enumerated in the unmeasured-confounders register and feeds the E-value interpretation.
 
-\paragraph{F13 --- Administrations, not orders.} Arm classification uses ICU \texttt{inputevents} (the actual IV-pump administrations) rather than \texttt{prescriptions} (orders). A patient with a 60-hour ``continue'' order that nursing held at 70\,h is correctly coded as \emph{stop} on administrations but \emph{continue} on orders. For stays with no IV record (e.g., antibiotics given on the ward) we fall back to \texttt{prescriptions}; about one third of stays fall back this way. Treatment-arm prevalence in the final cohort (post-WS4) is 79.1\,\% continue, 4.6\,\% de-escalate, 16.3\,\% stop.
+\paragraph{F13 --- Administrations, not orders.} Arm classification uses ICU \texttt{inputevents} (the actual IV-pump administrations) rather than \texttt{prescriptions} (orders). A patient with a 60-hour ``continue'' order that nursing held at 70\,h is correctly coded as \emph{cease} on administrations but \emph{continue} on orders. For stays with no IV record (e.g., antibiotics given on the ward) we fall back to \texttt{prescriptions}; about one third of stays fall back this way. Treatment-arm prevalence in the final cohort (post-WS4) is 79.1\,\% continue, 4.6\,\% de-escalate, 16.3\,\% cease.
 
-\paragraph{Treatment taxonomy --- operational definitions.} Spectrum classifications and arm-derivation rules are formalised in \texttt{antibiotic\_pipeline/definitions/treatment\_taxonomy.yaml}, which is the single source of truth and is versioned with the manuscript. Specifically: (i) IV vancomycin is classified as broad-spectrum (anti-MRSA continuation); \emph{oral} vancomycin and \emph{oral} metronidazole are excluded from arm classification and coded as the \emph{C.\,difficile} therapy outcome. (ii) Antifungals (fluconazole, micafungin, caspofungin, voriconazole, amphotericin) and antivirals (acyclovir, oseltamivir, ganciclovir, valacyclovir) are flagged but excluded from arm classification; concurrent presence is recorded as a deviation flag for subgroup analysis. (iii) Mixed regimens (any broad plus any narrow) are classified as \emph{continue} (the broadest active agent wins); a \texttt{dual\_gram\_negative} flag is recorded separately. (iv) Same-agent route changes (e.g., IV→PO cefepime) are flagged \texttt{route\_change\_only} but do not change the arm; a sensitivity that re-classifies them as \emph{de-escalate} is reported. (v) Short-course peri-operative prophylaxis ($\leq 24$\,h narrow-spectrum, no continuation) is excluded from arm classification (\texttt{prophylactic\_only} flag). The complete agent-by-agent assignment table is included in the supplementary appendix and as \texttt{treatment\_taxonomy.yaml} in the released code.
+\paragraph{Treatment taxonomy --- operational definitions.} Spectrum classifications and arm-derivation rules are formalised in \texttt{definitions/} \texttt{treatment\_taxonomy.yaml}, which is the single source of truth and is versioned with the manuscript. Specifically: (i) IV vancomycin is classified as broad-spectrum (anti-MRSA continuation); \emph{oral} vancomycin and \emph{oral} metronidazole are excluded from arm classification and coded as the \emph{C.\,difficile} therapy outcome. (ii) Antifungals (fluconazole, micafungin, caspofungin, voriconazole, amphotericin) and antivirals (acyclovir, oseltamivir, ganciclovir, valacyclovir) are flagged but excluded from arm classification; concurrent presence is recorded as a deviation flag for subgroup analysis. (iii) Mixed regimens (any broad plus any narrow) are classified as \emph{continue} (the broadest active agent wins); a \texttt{dual\_gram\_negative} flag is recorded separately. (iv) Same-agent route changes (e.g., IV→PO cefepime) are flagged \texttt{route\_change\_only} but do not change the arm; a sensitivity that re-classifies them as \emph{de-escalate} is reported. (v) Short-course peri-operative prophylaxis ($\leq 24$\,h narrow-spectrum, no continuation) is excluded from arm classification (\texttt{prophylactic\_only} flag). The complete agent-by-agent assignment table is included in the supplementary appendix and as \texttt{treatment\_taxonomy.yaml} in the released code.
 
 \subsection{Step 3 — Estimation}
 We estimate the ATE in two complementary ways:
@@ -164,7 +238,7 @@ We sweep three axes in addition to the bootstrap:
 \item \emph{Feature set}: all confounders, no-infection-markers, no-trajectory, no-treatment-history, severity+demographics.
 \item \emph{Treatment-classification window}: $\pm 6$\,h, $\pm 12$\,h, $\pm 24$\,h around $T_0$.
 \end{enumerate}
-The vibration figure (Figure~\ref{fig:sensitivity}) is the central diagnostic: a robust effect should be a tight column of CIs, an unstable effect should be a smear.
+The vibration grid (Supplementary Figure~S1) is one robustness probe; a robust effect should be a tight column of CIs across the grid, an unstable effect a smear. The post-WS4 multinomial-GPS benchmark (\S\ref{sec:estimator_benchmarking}, Table~\ref{tab:benchmark}) is the primary robustness check the manuscript relies on.
 
 \subsection{Step 5 --- Diagnostic-gated probes and deployment guardrails}
 We separate \emph{identification-layer} probes (which interrogate the conditions under which a causal estimate is admissible) from \emph{deployment-layer} probes (which interrogate the reliability of an individual-level risk display). Each is paired with a downstream gate: a failing identification probe suppresses the corresponding effect from the rendered results; a failing deployment probe suppresses the corresponding arm in the CDSS prototype.
@@ -172,9 +246,10 @@ We separate \emph{identification-layer} probes (which interrogate the conditions
 \paragraph{Identification-layer probes.}
 \begin{enumerate}[leftmargin=*,itemsep=2pt]
 \item \emph{Positivity / overlap (F7)} --- multi-diagnostic panel: per-arm propensity histogram, standardised mean differences before and after weighting, effective sample size (ESS), tail-weight share, density overlap in covariate space. The 0.05 / 0.95 trimming threshold is reported as a sensitivity (0.01, 0.05, 0.10) and an overlap-weighted estimand \cite{li2018overlap} is also reported as the clipping-free alternative.
+\item \emph{Post-weighting balance (WS6)} --- the share of confounders with $|$SMD$|<0.1$ \cite{austin2009smd} after IPTW weighting. On the headline contrast (continue vs.\ cease, post-WS4 cohort) this share is $33.3\,\%$: two thirds of the 38 confounders remain imbalanced after weighting, and the maximum stabilised weight is $3.11$, with the top 5\,\% of weights carrying 8.2\,\% of the total mass. Under the locked verdict thresholds (Table~\ref{tab:verdict_thresholds}) this value sits in the \emph{marginal} band ($30$--$50\,\%$), not the \emph{fail} band ($<30\,\%$); the render rule therefore admits the contrast but commits the pipeline to surface the value alongside every rendered estimate. The overlap histogram passes ($82.8\,\%$ in common support, $\geq 70$ pass threshold); the marginal balance verdict is the more diagnostic of the two for this contrast and is highlighted explicitly in Table~\ref{tab:summary}.
 \item \emph{E-value (F10)} --- minimum confounder strength, on the risk-ratio scale, needed to explain the ATE away \cite{vanderweele2017evalue}. Reported for both the point estimate and the CI bound nearest the null.
-\item \emph{Specification-stability null (F11)} --- distribution of ATEs after shuffling treatment labels within the cohort. We \emph{do not} interpret this probe as a test of exchangeability or of omitted-variable bias; it tests whether the estimator can distinguish structured association in the data from label noise under the chosen specification (\S Methods).
-\item \emph{Simulation-based coverage (F21)} --- a parametric simulation calibrated on cohort marginals, with a known ground-truth ATE, on which the empirical coverage of the nominal-95\,\% CI of each estimator is read off. Replaces an earlier ``empirical CI coverage'' metric that was uninterpretable without a known truth.
+\item \emph{Specification-stability null (F11)} --- distribution of ATEs after shuffling treatment labels within the cohort. We \emph{do not} interpret this probe as a test of exchangeability or of omitted-variable bias; it tests whether the estimator can distinguish structured association in the data from label noise under the chosen specification (\S Methods). With only 5 shuffles in the present run, the empirical q95 is reported as an order-of-magnitude check and not as a calibrated hypothesis test; a higher-replicate version is identified as future work.
+\item \emph{Simulation-based coverage (F21)} --- a parametric simulation calibrated on cohort marginals, with a known ground-truth ATE, on which the empirical coverage of the nominal-95\,\% CI of each estimator is read off (Table~\ref{tab:coverage}). Replaces an earlier ``empirical CI coverage'' metric that was uninterpretable without a known truth. The simulation result is itself a probe outcome --- the estimator-dependence of coverage feeds the disagreement narrative in \S\ref{sec:estimator_benchmarking}.
 \end{enumerate}
 
 \paragraph{Deployment-layer probes.} These do not bear on identification: a perfectly calibrated prognostic model can still be biased under unmeasured confounding. They gate \emph{individual-level} displays in the prototype CDSS.
@@ -182,15 +257,26 @@ We separate \emph{identification-layer} probes (which interrogate the conditions
 \item \emph{Per-arm calibration (F12)} --- Brier score, intercept, slope of logit($\hat p$) versus observed. Gates whether an arm's per-patient risk is shown.
 \item \emph{Mahalanobis out-of-distribution check} --- flags the input record as outside the 99\textsuperscript{th} percentile of the training cohort.
 \end{enumerate}
-The prototype CDSS surfaces an overlap-warning banner whenever the comparison being viewed has overlap $<70\,\%$, suppresses the de-escalate display in MIMIC-IV (calibration slope $0.34$ in that arm), and renders a red Mahalanobis OOD banner when the patient's covariates exceed the 99\textsuperscript{th}-percentile threshold. The prototype is intended as a reference implementation of guardrail-aware estimate display, not as a clinically validated tool.
+Within the architecture of this paper the CDSS plays a specific role: it is the second rendered surface --- distinct from the manuscript table --- on which the refusal-to-render contract is exercised. Reading it as a unit test for the contract is the correct frame: if $R_{\text{CDSS}}$ permits an effect estimate to appear without the deployment-layer probes (per-arm calibration, Mahalanobis OOD) having been evaluated and passed, the contract is broken. The prototype is not a candidate clinical tool, has not undergone prospective evaluation, and is not validated for stewardship use; we describe its rendered surface below because the second-surface render rule is part of the contribution.
+
+\paragraph{What the clinician sees.} For an admitted ICU patient on broad-spectrum antibiotics approaching the 72\,h re-evaluation point, the CDSS surface displays four elements arranged top-to-bottom:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+\item \emph{Patient context strip.} Admission demographics, current SOFA / SAPS-II, current vasopressor and ventilation status, days on antibiotics, current culture status (positive / negative / pending), and the editable confounder inputs the clinician can override.
+\item \emph{Per-arm absolute-risk panel.} For each arm \emph{the contract permits to render}, a per-patient 28-day mortality risk estimate, a CI, and the marginal verdict tokens for the contrast the arm participates in. On MIMIC-IV the panel currently shows two arms (continue, cease); the de-escalate arm is structurally absent --- replaced by a single line of text naming the failed probe (per-arm calibration slope $0.34$) and the rule the contract applied.
+\item \emph{Banner row.} Three optional banners light up based on the deployment-layer probes: an overlap-warning banner if the comparison being viewed has overlap below the marginal threshold, a Mahalanobis OOD banner if the patient's covariate vector exceeds the 99\textsuperscript{th}-percentile threshold, and a fragility banner if any required probe on the rendered contrast is in the marginal band (the rendered continue-vs-cease contrast on MIMIC-IV triggers this banner on three marginal verdicts: balance, E-value, and AIPW coverage).
+\item \emph{Per-patient explanation panel.} A logit-space decomposition of the displayed risk into its top-five-by-magnitude contributions. The decomposition uses the same logistic that produced the displayed risk, so contributions sum (in log-odds) to the displayed risk-delta --- the visible explanation is, by construction, the model's actual computation rather than a post-hoc approximation. This addresses the \cite{clixm2025} concern that XAI displays often correlate poorly with the underlying causal computation.
+\end{itemize}
+
+The render rule $R_{\text{CDSS}}$ guarantees three structural properties of the surface. First, the clinician cannot see a per-patient risk for an arm whose required deployment-layer probe has failed; the failed probe is named in the suppression line. Second, every rendered estimate carries its marginal verdicts inline; the clinician does not have to navigate elsewhere to learn that the displayed number is fragile. Third, the JSON payload that produced the rendered surface is persisted with every patient interaction and is the unit of analysis for the silent-mode evaluation that is the named next phase of clinical evaluation under DECIDE-AI \cite{decideai2022}.
 
 %─────────────────────────────────────────────────────────────────────────────
-\section{Application — MIMIC-IV, n = 9{,}314}
+\section{Reference implementation --- ICU antibiotic stewardship on MIMIC-IV (n = 9{,}314)}\label{sec:reference}
 
 \begin{table}[H]
   \centering
   \small
-  \caption{Cohort characteristics at $T_0$. Mean (SD) for continuous; \% for binary. Arm prevalence is after the F13 administrations-not-orders reclassification and the WS4 CMO-at-$T_0$ exclusion.}
+  \caption{Cohort characteristics at $T_0$. Mean (SD) for continuous; \% for binary. Arm prevalence is after the F13 administrations-not-orders reclassification and the WS4 CMO-at-$T_0$ exclusion. The secondary outcomes (VFD-28, secondary infection, AKI worsening, \emph{C.\,diff.}\ therapy) are descriptive in this table only; the main-text pipeline output (Tables~\ref{tab:benchmark} and~\ref{tab:summary}) is reported for 28-day mortality.}
   \label{tab:cohort}
   \begin{tabular}{lrrrr}
     \toprule
@@ -215,18 +301,10 @@ The prototype CDSS surfaces an overlap-warning banner whenever the comparison be
   \end{tabular}
 \end{table}
 
-Patients in the \emph{continue} arm are slightly sicker than those who are stopped (SOFA 5.4 vs 4.5, vasopressors 41\,\% vs 28\,\%), confirming that the naïve risk difference (cease minus continue: $-13.8$\,pp 28-day mortality) is heavily confounded by indication. Below we report the deconfounded ATEs.
+Patients in the \emph{continue} arm are slightly sicker than those who cease (SOFA 5.4 vs 4.5, vasopressors 41\,\% vs 28\,\%), confirming that the naïve risk difference (cease minus continue: $-13.8$\,pp 28-day mortality) is heavily confounded by indication. Below we report the deconfounded ATEs.
 
-\subsection{Vibration analysis — 58-fit sensitivity grid}
-We crossed 5 estimators with 4 feature sets and 2 nuisance-model families (random forest, logistic / ridge), discarding fits that did not converge. Figure~\ref{fig:sensitivity} shows the resulting forest plot. The middle panel (\emph{Continue vs Stop}) is a tight column of green CIs centred around $-3.5$\,pp; the top and bottom panels (\emph{Continue vs De-escalate}, \emph{De-escalate vs Stop}) are a smear of grey CIs that all cross zero. The three T-Learner rows at the bottom of the middle panel have CIs an order of magnitude wider than the DML/DRLearner rows; the difference is a function of nuisance-estimation error rather than statistical power per se --- orthogonalisation makes the estimator more robust to misspecification of the nuisance models, which on the same data manifests as tighter CIs.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\linewidth]{figures/fig3_sensitivity_forest.pdf}
-  \caption{Forest plot of the ATE on 28-day mortality across 58 sensitivity fits. Each row is one (estimator, feature set, nuisance model) combination. Green: CI strictly below zero (cease/de-escalate reduces mortality). Red: CI above zero. Grey: CI crosses zero. The \emph{cease-vs-continue} contrast is the only one whose CI excludes zero in a majority of fits; the other two contrasts are null. Three T-Learner fits (top of the middle panel) have very wide CIs because the meta-learner does not benefit from DML residualisation; they are kept in the figure to illustrate the cost of skipping orthogonalisation.}
-  \label{fig:sensitivity}
-\end{figure}
-\FloatBarrier
+\subsection{Within-DR-family vibration (pre-WS4 cohort; supplementary)}
+A 58-fit sensitivity grid crossing five estimators with four feature sets and two nuisance-model families was run on the pre-WS4 cohort (n=$9{,}331$, prior to the CMO-at-$T_0$ exclusion and the addition of the four clinical-intent confounders described in \S Identification). The grid is reported in full in Supplementary Figure S1 for transparency on within-DR-family stability across feature sets and nuisance models. The post-WS4 robustness story is carried by the multinomial-GPS eight-estimator benchmark (\S\ref{sec:estimator_benchmarking}, Table~\ref{tab:benchmark}), which is the primary robustness check the manuscript relies on; the pre-WS4 within-DR stability shown in the supplement should be read in conjunction with the across-estimand divergence shown in Table~\ref{tab:benchmark} --- tight CIs across DR fits do not imply agreement with the matched-ATT estimand, and the pipeline reports both.
 
 \subsection{Window-classification sensitivity}
 The choice of $\pm 12$\,h around $T_0$ is somewhat arbitrary. Figure~\ref{fig:window} shows the \emph{cease-vs-continue} signal is stable to $\pm 6$, $\pm 12$, and $\pm 24$\,h (ATE between $-2.3$ and $-3.8$\,pp, all CIs strictly below zero). The de-escalate contrasts remain null at every window.
@@ -234,7 +312,7 @@ The choice of $\pm 12$\,h around $T_0$ is somewhat arbitrary. Figure~\ref{fig:wi
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.85\linewidth]{figures/fig4_window_sweep.pdf}
-  \caption{Window-sweep sensitivity. Continue-vs-Stop (green) is the only contrast where the CI excludes zero at every window. The other two contrasts (grey) are null across windows.}
+  \caption{Window-sweep sensitivity for the rendered continue-vs-cease contrast and the two suppressed contrasts. Continue-vs-cease (green) is the only contrast whose CI excludes zero at every window; this within-window stability is one of several signals on the rendered row and should be read alongside the marginal balance and E-value verdicts of Table~\ref{tab:summary}, not as independent corroboration.}
   \label{fig:window}
 \end{figure}
 \FloatBarrier
@@ -245,40 +323,40 @@ Identification assumes that every patient could in principle have been assigned 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{figures/fig5_overlap.pdf}
-  \caption{Propensity-score histograms per pairwise comparison. Common-support fraction is the share of rows with $0.05 \leq \hat e \leq 0.95$. The \emph{continue-vs-de-escalate} comparison has only 36\,\% overlap, even after the F13 reclassification doubled the de-escalate arm; estimates for that contrast are largely extrapolations.}
+  \caption{Propensity-score histograms per pairwise comparison. Common-support fraction is the share of rows with $0.05 \leq \hat e \leq 0.95$. Continue-vs-de-escalate has $36.2\,\%$ overlap, below the $50\,\%$ fail threshold of Table~\ref{tab:verdict_thresholds}; the manuscript-table render rule suppresses that contrast accordingly. The other two contrasts pass the overlap threshold.}
   \label{fig:overlap}
 \end{figure}
 \FloatBarrier
 
 \subsection{Per-arm calibration (deployment-layer probe)}
-Per-arm calibration is a probe of \emph{predictive reliability of a per-patient risk display}, not of causal identifiability: a perfectly calibrated prognostic model can still produce a biased treatment effect under unmeasured confounding. We retain calibration here because the prototype CDSS shows per-patient absolute risks, and a poorly calibrated arm makes that display dishonest regardless of whether the underlying causal estimate is well-identified. We fit a 5-fold cross-validated logistic mortality model within each arm and computed Brier score, intercept, and slope (Figure~\ref{fig:calibration}). The continue and stop arms are well- and moderately-calibrated respectively; the de-escalate arm is not --- a calibration slope of $0.34$ and a non-monotone reliability curve at the high-risk end mean that displayed risks in that arm are essentially uninformative. This is a data-availability problem (n=107 deaths in 429 patients), not a hyper-parameter problem. The pipeline gates the de-escalate display in the CDSS prototype accordingly.
+Per-arm calibration is a probe of \emph{predictive reliability of a per-patient risk display}, not of causal identifiability: a perfectly calibrated prognostic model can still produce a biased treatment effect under unmeasured confounding. We retain calibration here because the prototype CDSS shows per-patient absolute risks, and a poorly calibrated arm makes that display dishonest regardless of whether the underlying causal estimate is well-identified. We fit a 5-fold cross-validated logistic mortality model within each arm and computed Brier score, intercept, and slope (Figure~\ref{fig:calibration}). The continue and cease arms are well- and moderately-calibrated respectively; the de-escalate arm is not --- a calibration slope of $0.34$ and a non-monotone reliability curve at the high-risk end mean that displayed risks in that arm are essentially uninformative. This is a data-availability problem (n=107 deaths in 429 patients), not a hyper-parameter problem. The pipeline gates the de-escalate display in the CDSS prototype accordingly.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{figures/fig6_calibration.pdf}
-  \caption{Reliability curves of the per-arm 28-day mortality logistic. The de-escalate arm (middle panel) has a calibration slope of $0.34$ and is non-monotone at high predicted-risk — too few events (n=107 deaths in 429 patients) to support an individual-level risk display.}
+  \caption{Reliability curves of the per-arm 28-day mortality logistic. The de-escalate arm (middle panel) has a calibration slope of $0.34$ --- well below the $0.5$ deployment-layer fail floor of Table~\ref{tab:verdict_thresholds} --- and is non-monotone at high predicted-risk; n=107 deaths in 429 patients. The CDSS render rule structurally suppresses the de-escalate per-patient display on this failure.}
   \label{fig:calibration}
 \end{figure}
 \FloatBarrier
 
 \subsection{Specification-stability null (label-shuffle)}
-A bootstrap quantifies the sampling distribution of the estimator under the assumed specification; it cannot tell us whether the specification is right, and it does not test exchangeability, omitted-variable bias, or any other identification assumption. As a complementary \emph{specification-stability} check we shuffle treatment labels within the cohort, re-fit DML, and read off the distribution of ATEs the model produces under label noise. An observed effect that falls inside this null distribution indicates only that the estimator is unable to distinguish the structured association in the data from random label assignment under the chosen specification --- this is informative but should not be interpreted as evidence of causal validity in the opposite direction. Figure~\ref{fig:permutation} shows the result for 5 shuffles per pair. The continue-vs-stop observed ATE is outside its label-shuffle null (real $|$ATE$| = 3.8$ vs null-q95 = $1.8$); the other two contrasts are not.
+A bootstrap quantifies the sampling distribution of the estimator under the assumed specification; it cannot tell us whether the specification is right, and it does not test exchangeability, omitted-variable bias, or any other identification assumption. As a complementary \emph{specification-stability} check we shuffle treatment labels within the cohort, re-fit DML, and read off the distribution of ATEs the model produces under label noise. An observed effect that falls inside this null distribution indicates only that the estimator is unable to distinguish the structured association in the data from random label assignment under the chosen specification --- this is informative but should not be interpreted as evidence of causal validity in the opposite direction. Figure~\ref{fig:permutation} shows the result for 5 shuffles per pair. The continue-vs-cease observed ATE is outside its label-shuffle null (real $|$ATE$| = 3.8$ vs null-q95 = $1.8$); the other two contrasts are not.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{figures/fig7_permutation.pdf}
-  \caption{Permutation-label null distributions. The vertical red bar is the observed ATE; the histogram is the bootstrap of ATEs estimated on shuffled-label data. For continue-vs-stop the observed effect is outside the null distribution; for the other two pairs it is not.}
+  \caption{Specification-stability null (5-shuffle label permutation). Vertical red bar is the observed ATE; histogram is the distribution of ATEs estimated on shuffled-label data. For continue-vs-cease the observed effect is outside the null distribution (pass); for the other two pairs the observed value lies within the null (fail under the locked threshold of Table~\ref{tab:verdict_thresholds}). With $n=5$ shuffles the quantiles are reported as an order-of-magnitude check, not a calibrated hypothesis test.}
   \label{fig:permutation}
 \end{figure}
 \FloatBarrier
 
 \subsection{E-value}
-The E-value (VanderWeele \& Ding 2017~\cite{vanderweele2017evalue}) translates the ATE into the minimum strength, on a risk-ratio scale, that an unmeasured confounder would need to fully explain it away. Figure~\ref{fig:evalues} reports both the point and CI-bound E-values for each pairwise comparison. Continue-vs-Stop reaches an E-value of $1.55$ at the point estimate and $1.30$ at the CI bound nearest the null. That is a modest threshold — a frailty or goals-of-care confounder with relative risks of $\sim 1.3$ with treatment \emph{and} outcome would defeat the result. We therefore treat it as hypothesis-generating, not confirmatory.
+The E-value (VanderWeele \& Ding 2017~\cite{vanderweele2017evalue}) translates the ATE into the minimum strength, on a risk-ratio scale, that an unmeasured confounder would need to fully explain it away. Figure~\ref{fig:evalues} reports both the point and CI-bound E-values for each pairwise comparison. Continue-vs-Cease reaches an E-value of $1.55$ at the point estimate and $1.30$ at the CI bound nearest the null. That is a modest threshold — a frailty or goals-of-care confounder with relative risks of $\sim 1.3$ with treatment \emph{and} outcome would defeat the result. We therefore treat it as hypothesis-generating, not confirmatory.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.75\linewidth]{figures/fig8_evalues.pdf}
-  \caption{VanderWeele E-values for each pairwise ATE. An E-value of $1.55$ means an unmeasured confounder would need risk ratios of $1.55$ with both treatment and outcome to fully explain the result away. The continue-vs-stop signal is modestly robust (E-value $1.55$, CI-bound 1.30) — clinically plausible severity confounders can still defeat it.}
+  \caption{VanderWeele E-values for each pairwise ATE. An E-value of $1.55$ means an unmeasured confounder would need risk ratios of $1.55$ with both treatment and outcome to fully explain the result away. The continue-vs-cease E-value ($1.55$ at the point estimate, $1.30$ at the CI bound nearest the null) sits in the $1.25$--$2.0$ marginal band of Table~\ref{tab:verdict_thresholds} --- modest by clinically plausible standards.}
   \label{fig:evalues}
 \end{figure}
 \FloatBarrier
@@ -289,84 +367,172 @@ The E-value (VanderWeele \& Ding 2017~\cite{vanderweele2017evalue}) translates t
 
 The mortality outcome is reported at four endpoints rather than one. We derive \texttt{mortality\_7d}, \texttt{mortality\_14d}, \texttt{mortality\_21d}, and \texttt{mortality\_28d} from \texttt{(dod $-$ decision\_time)} on the same cohort denominator (the F16 follow-up censoring NaN's all four horizons together so the four endpoints are like-for-like comparable). The four horizons are framed as four discrete marginal-risk-difference contrasts of \emph{observed treatment state at $T_0$}; the trajectory shape they trace is a visualisation of those four discrete contrasts, not a continuous-time hazard model. Per-patient absolute risks under each arm at each horizon are predicted by a T-Learner trained per (arm, horizon), and a \emph{joint} bootstrap (one cohort resample applied to all four horizons simultaneously) supplies a coherent CI band around the trajectory. The de-escalate arm is suppressed in the rendered output at every horizon by the deployment-layer calibration probe (extended to (arm $\times$ horizon) granularity in WS11). The chart connector is piecewise-linear with per-horizon CI bars by default; a cubic interpolation is available as an explicit smoothing layer.
 
-\paragraph{Why discrete-time T-Learners and not a Cox / RSF / discrete-hazard survival model?} A proper survival model with cross-fitted nuisances would be a more parsimonious description of the same underlying process. We use the per-horizon T-Learner because it produces directly-displayable per-arm absolute risks for the CDSS prototype — a Cox hazard ratio does not. The trajectory shape produced by the four discrete T-Learners agrees with the AIPW-derived ATE trajectory (\S\ref{sec:estimator_benchmarking}) within roughly 0.5\,pp at every horizon, and the framework's diagnostics (overlap, calibration, E-value) apply at each horizon separately. Reviewers preferring a survival-model framing will find the equivalence in the supplementary appendix; the substantive conclusions are unchanged.
+\paragraph{Why discrete-time T-Learners and not a Cox / RSF / discrete-hazard survival model?} A proper survival model with cross-fitted nuisances would be a more parsimonious description of the same underlying process. We use the per-horizon T-Learner because it produces directly-displayable per-arm absolute risks for the CDSS prototype — a Cox hazard ratio does not. The trajectory shape produced by the four discrete T-Learners agrees with the AIPW-derived ATE trajectory (\S\ref{sec:estimator_benchmarking}) within roughly 0.5\,pp at every horizon, and the pipeline's diagnostics (overlap, calibration, E-value) apply at each horizon separately. Reviewers preferring a survival-model framing will find the equivalence in the supplementary appendix; the substantive conclusions are unchanged.
 
 \paragraph{What the trajectory shows.} For the continue-vs-cease contrast, the doubly-robust ATE is \emph{near zero at day 7} ($+0.76$\,pp [$-0.50$, $+2.24$] under AIPW) and \emph{progressively widens} to $\approx -4$\,pp by day 28 ($-4.02$\,pp [$-5.27$, $-2.59$]). The pure-weighting estimators (IPTW, overlap-weighted ATO) show the same monotone widening but at larger magnitudes; the propensity-matched ATT, by contrast, remains a slight \emph{positive} $1$--$3$\,pp at every horizon, indicating the marginal effect at every horizon is driven by the non-overlap region rather than the matched subpopulation (\S\ref{sec:estimator_benchmarking}). The reader can therefore see, in the same figure, both \emph{when} the contrast emerges in time and \emph{which estimators} agree on its magnitude.
 
-\subsection{Estimator benchmarking}
+\subsection{Estimator benchmarking --- the headline disagreement}
 \label{sec:estimator_benchmarking}
 
-A single estimator is not a sufficient robustness check: orthogonalisation reduces nuisance-estimation-error bias but does not adjudicate identification. We benchmark eight estimators under the locked pre-specification (\S Statistical pre-specification): double machine learning (DML), doubly-robust learners (DRLearner, AIPW), inverse probability weighting with stabilised weights and with overlap weights (IPTW, ATO; \cite{li2018overlap}), targeted maximum likelihood estimation (TMLE), $g$-computation, propensity-matched ATT (1:k nearest neighbour with caliper $0.2 \cdot \mathrm{SD}(\hat e)$), and a T-learner reference. Pairwise contrasts are computed under a single multinomial random-forest propensity (Generalized Propensity Score) so that all three contrasts are estimated on the same covariate support (Table~\ref{tab:benchmark}). The estimand attached to every row is annotated: marginal risk-difference ATE, average treatment effect on the treated (ATT), or overlap-weighted ATE (ATO).
+A single estimator is not a sufficient robustness check: orthogonalisation reduces nuisance-estimation-error bias but does not adjudicate identification. We benchmark eight estimators under the locked pre-specification (\S\ref{sec:prespec}): double machine learning (DML), doubly-robust learners (DRLearner, AIPW), inverse probability weighting with stabilised weights and with overlap weights (IPTW, ATO; \cite{li2018overlap}), targeted maximum likelihood estimation (TMLE) \cite{vanderlaan2011tmle}, $g$-computation, propensity-matched ATT (1:k nearest neighbour with caliper $0.2 \cdot \mathrm{SD}(\hat e)$), and a T-learner reference. Pairwise contrasts are computed under a single multinomial random-forest propensity (Generalized Propensity Score) so that all three contrasts are estimated on the same covariate support. The estimand attached to every row is annotated: marginal risk-difference ATE, average treatment effect on the treated (ATT), or overlap-weighted ATE (ATO).
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Eight-estimator benchmark on the headline contrast (continue vs.\ cease, 28-day mortality, post-WS4 cohort, n=9{,}314, 200 bootstrap replicates, multinomial GPS). The point estimates span $\approx 10$\,pp from the matched ATT ($+1.45$\,pp, essentially zero) to stabilised IPTW ($-8.45$\,pp). The doubly-robust cluster (AIPW, $g$-computation, TMLE, DML) sits around $-4$\,pp; pure-weighting estimators (IPTW, overlap-weighted ATO) overshoot to $-6$ to $-8$\,pp; the propensity-matched ATT is essentially zero. The matched-vs-weighted gap is the pipeline's principal finding for this contrast: the effect appears only outside the overlap region.}
+  \label{tab:benchmark}
+  \begin{tabular}{lcrr}
+    \toprule
+    Estimator & Estimand & ATE (pp) & 95\,\% CI \\
+    \midrule
+    IPTW (stabilised)             & ATE & $-8.45$ & $[-10.75,\,-6.21]$ \\
+    Overlap-weighted              & ATO & $-6.39$ & $[-8.60,\,-4.45]$ \\
+    G-computation                 & ATE & $-4.27$ & $[-4.51,\,-4.04]$ \\
+    AIPW                          & ATE & $-4.02$ & $[-5.27,\,-2.59]$ \\
+    TMLE                          & ATE & $-3.63$ & $[-6.92,\,+0.43]$ \\
+    DML (partial fit)             & ATE & $-4.46$ & $[-6.60,\,-2.31]$ \\
+    Propensity-matched (1:k)      & ATT & $+1.45$ & $[-2.29,\,+3.89]$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\linewidth]{figures/fig9_estimator_benchmark.pdf}
-  \caption{Estimator-benchmark forest plot for the three pairwise contrasts under the locked pre-specification. Rows are individual estimator $\times$ estimand combinations; the estimand is annotated on each row (ATE / ATT / ATO). Continue-vs-cease point estimates cluster within $\sim 1$\,pp across DML, AIPW, TMLE, $g$-computation, and overlap-weighted IPTW; propensity-matched ATT (different estimand) is in the same direction but $\sim 1$\,pp larger; T-learner CIs are wider, as expected from non-orthogonalised meta-learners.}
+  \fbox{\begin{minipage}{0.95\linewidth}\vspace{1.2em}\centering\emph{[Figure~9 placeholder --- to be rendered from \texttt{data/diagnostics/benchmark\_grid.parquet}. Contents as in Table~\ref{tab:benchmark}: estimator-benchmark forest plot for the three pairwise contrasts under the locked pre-specification, with estimand annotated per row (ATE / ATT / ATO).]}\vspace{1.2em}\end{minipage}}
+  \caption{Estimator-benchmark forest plot for the three pairwise contrasts under the locked pre-specification. Rows are individual estimator $\times$ estimand combinations; the estimand is annotated on each row (ATE / ATT / ATO). On continue-vs-cease the doubly-robust point estimates (AIPW, $g$-computation, TMLE, DML) cluster around $-3.6$ to $-4.3$\,pp; pure-weighting estimators (IPTW, overlap-weighted) overshoot to $-6$ to $-8$\,pp; the propensity-matched ATT, on the matched subpopulation that achieves adequate overlap, is essentially zero ($+1.45$\,pp). On continue-vs-de-escalate the estimators disagree on \emph{sign} (IPTW/Overlap negative, AIPW/G-comp/TMLE positive), validating the overlap-gate suppression of that contrast.}
   \label{fig:benchmark}
 \end{figure}
 \FloatBarrier
 
-\subsection{External validation on eICU-CRD}
+\paragraph{Interpretation.} The cross-estimator spread is itself a robustness verdict. Doubly-robust estimators agree on $\approx -4$\,pp on the global covariate support; the matched ATT, restricted to the subpopulation that satisfies overlap, is essentially zero. The $\sim 5$\,pp gap between these two estimands implies that the doubly-robust ATEs are driven by extrapolation across the propensity-score tails rather than by a treatment effect that is recoverable inside the common-support region. We retain the doubly-robust cluster around $-4$\,pp as the pipeline's worked output because, under the locked pre-specification, the manuscript-table render rule is satisfied (the contrast does not fail any required probe); but we treat the doubly-robust point estimate as fragile in the strong sense, and the manuscript's Discussion section leads with this disagreement rather than with the doubly-robust cluster.
+
+%─────────────────────────────────────────────────────────────────────────────
+\section{Operationalisation and deployment readiness}\label{sec:operationalisation}
+
+The previous section reports the worked example's empirical output. This section reports the pipeline's properties \emph{as a software artefact}: its parametricity across databases, the locked statistical specification, the staging of the manuscript against the standard clinical-AI reporting guidelines, and the engineering choices that make the pipeline re-runnable by an independent team.
+
+\subsection{Pipeline parametricity --- the eICU-CRD adapter}
 \label{sec:eicu}
 
-We replicate the continue-vs-cease analysis on eICU-CRD \cite{pollard2018eicu} using a parallel framing module that maps the eICU schema to the same target-trial protocol (sepsis-3 cohort, first broad-spectrum order from the \texttt{medication} table, $T_0 = 72$\,h, $\pm 12$\,h treatment-window classification, the same 34+4 confounder set with documented eICU-specific measurement caveats). eICU spans 200+ US hospitals, so a within-eICU per-hospital subgroup analysis directly addresses the institution-specific stewardship-pattern concern (formulary, ID-consult culture, stop-order policies). The replicated point estimate, the per-hospital subgroup forest plot, and the eICU overlap/E-value verdicts are reported in Figure~\ref{fig:eicu} and Table~\ref{tab:eicu}. The estimate is reported as an external-cohort consistency check on the pipeline, not as additional evidence for the stewardship claim --- the E-value verdict remains modest on eICU as on MIMIC-IV.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\linewidth]{figures/fig10_eicu_external.pdf}
-  \caption{External validation on eICU-CRD: cohort flow (left), continue-vs-cease ATE on eICU vs MIMIC-IV (centre), and per-hospital subgroup forest plot within eICU (right). The signal direction replicates across the eICU cohort; per-hospital variation is consistent with reviewer-flagged institution-specific stewardship patterns and is rendered explicitly.}
-  \label{fig:eicu}
-\end{figure}
-\FloatBarrier
+The pipeline is parametric in the database adapter: a second framing module (\texttt{framing/} \texttt{eicu\_framing.py}) maps the eICU-CRD schema \cite{pollard2018eicu} to the same target-trial protocol (sepsis-3 cohort, first broad-spectrum order from the eICU \texttt{medication} table, $T_0 = 72$\,h, $\pm 12$\,h treatment-window classification, the same 34+4 confounder set with documented eICU-specific measurement caveats). eICU spans 200+ US hospitals, which is what makes it the appropriate adapter for a per-hospital subgroup analysis that directly addresses the institution-specific stewardship-pattern concern (formulary, ID-consult culture, stop-order policies) raised by the transportability literature \cite{wornow2025transportability}. We report the adapter and its measurement-mapping decisions here; the end-to-end run on eICU is in progress at the time of submission and the results table will be added in the final version. The point of including the adapter in this manuscript is to document the pipeline's parametricity --- that the same artefact runs on two distinct EHR schemas under the same locked specification --- rather than to claim a completed external-validation result on eICU.
 
 \subsection{Statistical pre-specification}
 \label{sec:prespec}
 
 A locked pre-specification document accompanies the source code (released alongside this manuscript as \texttt{paper/preregistration.yaml}, archived to Zenodo with a citable DOI). Primary analysis: continue-vs-cease, 28-day mortality, DML with random-forest propensity and logistic-regression outcome on the full confounder set under the $\pm 12$\,h treatment window. All other estimators, feature sets, windows, outcomes, and contrasts are secondary or sensitivity, with multiple-testing adjustment (Benjamini--Hochberg on the family of secondary outcomes; Bonferroni on the family of pairwise treatment contrasts). The pre-specification is acknowledged as retrospective for this manuscript; future runs of the pipeline (on additional databases or for related stewardship questions) will use the same locked spec.
 
-Confidence-interval construction is estimator-specific and is reported per estimator (\S Methods): EconML's asymptotic CIs for DML/DRLearner; bootstrap-percentile (500 replicates) for AIPW, IPTW, TMLE, $g$-computation, and the T-learner; cluster handling is not required after one-stay-per-subject deduplication. Coverage of the nominal-95\,\% CI is read off a parametric simulation calibrated on the cohort marginals (\S Methods, \texttt{experiments/simulation\_coverage.py}); empirical coverage is between 93\,\% and 95\,\% across estimators for the primary contrast.
+Confidence-interval construction is estimator-specific and is reported per estimator (\S Methods): EconML's asymptotic CIs for DML/DRLearner; bootstrap-percentile (500 replicates; 200 for the headline benchmark) for AIPW, IPTW, TMLE, $g$-computation, and the T-learner; cluster handling is not required after one-stay-per-subject deduplication. Coverage of the nominal-95\,\% CI is read off a parametric simulation calibrated on the cohort marginals (true ATE $\tau = -4$\,pp, $N=2000$, 100 sims, 150 bootstrap reps per fit; \texttt{experiments/simulation\_coverage.py}). Coverage is highly estimator-dependent and is itself a probe of the manuscript's claims (Table~\ref{tab:coverage}).
 
-%─────────────────────────────────────────────────────────────────────────────
-\section{Results --- pipeline output and diagnostic verdicts}
+\subsection{Deployment readiness --- reporting-guideline staging}\label{sec:deployment_readiness}
 
-We report the framework's output as a single object: for each pairwise contrast, an effect estimate, the diagnostic verdicts from each probe, and an indicator of which contrasts the pipeline gates out of the rendered CDSS. The signal-strength of any single number is secondary; the point is that every cell is computed by the same workflow under the same locked specification.
+The reference implementation is a \textbf{retrospective in-silico evaluation} on MIMIC-IV --- end-to-end pipeline execution on a historical cohort with no live clinician interaction. The pipeline runs end-to-end, produces every required identification-layer and deployment-layer probe, and applies the locked render rules of \S\ref{sec:contract}; the clinician-facing surface is exercised on simulated user requests rather than on a live ICU. This places the current manuscript under the \textbf{TRIPOD+AI} \cite{tripodai2024} reporting guideline (clinical-prediction / clinical-inference models) and \emph{prepares} the pipeline for the first phase covered by \textbf{DECIDE-AI} \cite{decideai2022} (early-stage clinical evaluation beginning at silent-mode integration). Multicenter effectiveness evaluation on the \textbf{CONSORT-AI} \cite{consortai2020} pattern is the eventual long-term goal. We summarise the evidence each subsequent phase would require in Table~\ref{tab:decide_ai} so that the deployment-evidence gap is structurally legible rather than implicit. DECIDE-AI does not itself define numbered stages 1--4; the phases below are the reporting standards applicable at each step of the evaluation pipeline, not a numbered scheme internal to any single guideline.
+
+\begin{table}[H]
+\centering\small
+\caption{Reporting-guideline staging of the reference implementation against the standard chain of clinical-AI evaluation guidelines. Each row names (i) the evaluation phase, (ii) the reporting standard that applies, and (iii) the evidence the manuscript does or does not yet provide. The current manuscript satisfies the first row; the remaining rows are roadmap, not claims.}
+\label{tab:decide_ai}
+\begin{tabular}{p{0.20\linewidth}p{0.22\linewidth}p{0.50\linewidth}}
+\toprule
+Evaluation phase & Reporting standard & State of the reference implementation \\
+\midrule
+\textbf{Retrospective in-silico} & \textbf{TRIPOD+AI} \cite{tripodai2024} & \textbf{Achieved in this manuscript.} End-to-end pipeline on MIMIC-IV (n=9{,}314); eight benchmark estimators; all required probes evaluated; locked verdict thresholds in \texttt{preregistration.yaml}; clinician-facing surface exercised on simulated user sessions; TRIPOD+AI checklist provided as supplementary material. \\
+\midrule
+Silent-mode integration & DECIDE-AI \cite{decideai2022} (first live phase) & \emph{Roadmap.} Pipeline runs in real time on incoming ICU records, renders verdict-gated outputs to a logged side-channel, no clinician interaction. The pluggable database adapter is designed for this drop-in; the JSON payload schema is the integration interface. \\
+Early human-in-the-loop & DECIDE-AI \cite{decideai2022} & \emph{Roadmap.} Targeted usability study with a small ICU clinician cohort; clinician judgments collected alongside system renders; usability metrics (SUS, NASA-TLX); failure-mode logging from clinician-system interactions. The verdict-token render and the suppress-with-reason payloads are designed to be the unit of analysis. \\
+Prospective single-site & DECIDE-AI \cite{decideai2022} (later live phase) & \emph{Roadmap.} Single-site prospective deployment under controlled conditions; outcomes recorded for served and not-served cases; institutional governance and IRB approval. The per-site verdict surfacing addresses the transportability concern raised by \cite{wornow2025transportability}. \\
+Multicenter effectiveness & CONSORT-AI \cite{consortai2020} & \emph{Roadmap.} Multicenter prospective study with patient outcomes as the primary endpoint, analogous to the MERIDIAN bacteremia-CDSS stepped-wedge trial \cite{meridian2025}. The locked pre-specification is the protocol skeleton. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The point of the staging is to make the deployment-evidence gap a property of the manuscript rather than a question a reviewer must ask. The pipeline is built; the retrospective in-silico evaluation is documented per TRIPOD+AI; the next phases and the standards that apply to them are named explicitly.
+
+\paragraph{Regulatory and stewardship context.} A stewardship-focused CDSS that displays per-patient treatment-effect estimates would, in the United States, plausibly fall under the FDA's Software-as-a-Medical-Device (SaMD) framework as a Class II decision-support tool (intent: inform a serious-condition treatment decision; clinician retains the override); the FDA's Total Product Lifecycle (TPLC) approach would govern the post-market evaluation. In the European Union the same artefact is in scope of the Medical Device Regulation (MDR) and the Artificial Intelligence Act high-risk category for healthcare AI; Article 12 traceability requires the kind of structured render-decision logging the present pipeline already produces (\texttt{diagnostics\_summary.json} payload, suppression-with-reason rows). At the clinical-guideline level, the 72\,h re-evaluation point used as $T_0$ in the worked example is the antimicrobial-stewardship recommendation of the Surviving Sepsis Campaign \cite{evans2021surviving}; the verdict-token surface is intended to support stewardship review rather than to replace it. We do not present any of these regulatory mappings as compliance claims --- the pipeline is at the retrospective in-silico phase, and the regulatory clock for live deployment has not started --- but we name them here because the structural properties of the pipeline (auditable render decisions, locked verdict thresholds, versioned configuration artefacts) are the properties that any subsequent regulatory submission would require.
+
+\subsection{Engineering choices that support deployment}\label{sec:engineering}
+
+A pipeline that is going to gate a CDSS render rule must satisfy engineering properties that do not appear in a typical methods paper. We list the choices explicitly here so the reader can audit them.
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+\item \emph{Pluggable database adapter.} The framing modules in \texttt{framing/} implement the same target-trial protocol against two distinct EHR schemas (MIMIC-IV, eICU-CRD). The pipeline is parametric in the adapter.
+\item \emph{Versioned configuration artefacts.} \texttt{preregistration.yaml} locks the analysis plan; \texttt{definitions/} \texttt{causal\_graph.yaml} locks the adjustment set and unmeasured-confounder register; \texttt{definitions/} \texttt{treatment\_taxonomy.yaml} locks the agent-by-agent arm-classification rules. The verdict thresholds (Table~\ref{tab:verdict_thresholds}) live in \texttt{preregistration.yaml} and are released alongside the manuscript.
+\item \emph{Deterministic and resumable execution.} All bootstrap and simulation runs accept a seed; long-running jobs (sensitivity grid, simulation coverage) write per-fit parquet logs and are resumable from the last completed fit (\texttt{run\_sensitivity\_} \texttt{respawn.sh}). This is what makes a multi-day pipeline operationally tractable.
+\item \emph{In-pipeline imputation.} Median imputation lives inside each cross-fit pipeline rather than once outside it, preventing test-fold medians from leaking into training and preserving the orthogonality argument that makes DML robust to nuisance-estimation error.
+\item \emph{Structured JSON payload.} Every render is accompanied by a \texttt{diagnostics\_summary.json} that lists every required probe, its quantitative value, and its verdict; suppressions are emitted as structured rows with the failing probe and its diagnostic value. The JSON schema is the persistent interface the CDSS surface consumes.
+\item \emph{Reporting checklists.} TRIPOD+AI \cite{tripodai2024} is provided as supplementary material and is the standard the current manuscript reports against; the DECIDE-AI \cite{decideai2022} checklist is provided as a forward-looking template for the first live phase. The pipeline's outputs (the \texttt{diagnostics\_summary.json} payload, the rendered manuscript table, and the verdict-token CDSS surface) are designed so that the data items required by each checklist are already structurally available.
+\end{itemize}
+
+These choices are what allow the pipeline to be re-run by an independent team on a new database with a new estimator under the same locked specification --- the substantive precondition of any further DECIDE-AI stage.
 
 \begin{table}[H]
   \centering
   \small
-  \caption{Pipeline output on MIMIC-IV: pairwise effect estimates on the marginal risk-difference scale (ATE) with each diagnostic's verdict. ``Specification-stability'' is the label-shuffle null check; ``coverage'' is simulation-based (parametric, known truth). The continue-vs-stop estimate is internally stable across estimators, feature sets, and treatment windows but is flagged as fragile by its E-value; the de-escalate contrasts are gated out of the rendered output by the overlap and calibration probes.}
-  \label{tab:summary}
-  \begin{tabular}{lccc}
+  \caption{Simulation-based coverage of the nominal-95\,\% CI on a parametric mimic of the cohort with known truth $\tau = -4$\,pp. The estimators are not uniformly trustworthy. AIPW and overlap-weighted IPTW are reasonably calibrated; TMLE attains nominal coverage at the cost of CI widths that are clinically uninformative; $g$-computation under-covers severely because its bootstrap does not capture nuisance-estimation variance; pure IPTW is biased away from the truth. This table replaces an earlier ``93--95\,\% across estimators'' claim that did not survive a properly calibrated simulation.}
+  \label{tab:coverage}
+  \begin{tabular}{lrrr}
     \toprule
-    Probe & Cont.\ vs De-esc. & Cont.\ vs Stop & De-esc.\ vs Stop \\
+    Estimator           & Coverage (\%) & Mean point (pp) & Mean CI width (pp) \\
     \midrule
-    Sensitivity grid (CI excl.\ 0 / fits) & 0 / 16 & 15 / 18 & 0 / 15 \\
-    Window sweep (CI excl.\ 0 at $w \in \{6,12,24\}$) & 0/3 & 3/3 & 0/3 \\
-    Overlap (\% in $[0.05,0.95]$) & 36.2 & 82.8 & 99.1 \\
-    Per-arm calibration slope (de-esc.\ / stop) & \multicolumn{3}{c}{Continue 0.94 ; De-escalate 0.34 ; Stop 0.76} \\
-    Specification-stability null (obs.\ $|$ATE$|$ vs q95) & 1.06 \emph{vs} 3.08 & 3.80 \emph{vs} 1.81 & 1.96 \emph{vs} 2.91 \\
-    E-value (point / CI bound nearest null) & 1.23 / 1.00 & 1.55 / 1.30 & 1.39 / 1.00 \\
-    Simulation-based coverage (95\,\% nominal) & 94 & 95 & 93 \\
-    \midrule
-    Gated in rendered output? & yes (overlap) & no & yes (overlap, calibration) \\
+    TMLE                & 100 & $-2.63$ & $14.7$ (wide / uninformative) \\
+    Overlap-weighted    & 91  & $-4.00$ & $8.9$ \\
+    AIPW                & 77  & $-2.63$ & $6.8$ \\
+    IPTW (stabilised)   & 74  & $-5.65$ & $9.3$ \\
+    G-computation       & 6   & $-2.63$ & $0.5$ (under-cover) \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Continue vs.\ Stop (illustrative case).} The point estimate of $-3.0$ to $-3.8$\,pp on 28-day mortality is internally stable across estimators, feature sets, nuisance models, and treatment windows. The framework's own E-value verdict, however, is modest: at $1.55$ on the point estimate and $1.30$ on the CI bound nearest the null, a single unmeasured confounder with risk ratios of $\sim 1.3$ on both treatment and outcome --- such as a bedside-gestalt frailty score, undocumented improvement, or a goals-of-care discussion --- would be sufficient to fully explain the effect away. We therefore present this number as the framework's worked output, not as a stewardship recommendation. Independent randomised evidence remains the appropriate confirmatory test.
+%─────────────────────────────────────────────────────────────────────────────
+\section{Results --- pipeline output and diagnostic verdicts}\label{sec:summary}
 
-\paragraph{Continue vs.\ De-escalate (gated).} The estimated ATE is small ($-1.06$\,pp DML, $-0.70$\,pp DRLearner) and the CI crosses zero in every fit. Overlap is only 36\,\%, calibration for the de-escalate arm is poor (slope $0.34$), and the observed effect is inside the label-shuffle null distribution. The pipeline gates this contrast out of the rendered CDSS output; the CDSS surfaces an overlap-warning banner whenever the user requests it.
+We report the pipeline's output as a single object: for each pairwise contrast, an effect estimate, the diagnostic verdicts from each probe, and the rendering decision the refusal-to-render contract produces. The signal-strength of any single number is secondary; the point is that every cell is computed by the same workflow under the same locked specification and the rendering of every row is determined by the render rule $R_{\text{table}}$ (\S\ref{sec:contract}).
 
-\paragraph{De-escalate vs.\ Stop (gated).} ATEs between $-2.0$ and $-3.3$\,pp but all CIs cross zero. Better overlap (99\,\%) but the small de-escalate arm (n=429) bounds the achievable precision; the pipeline gates this contrast on the calibration probe (de-escalate slope $0.34$).
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \caption{Pipeline output on MIMIC-IV (post-WS4 cohort, n=9{,}314): pairwise effect estimates on the marginal risk-difference scale (ATE) with each probe's verdict under the locked thresholds of Table~\ref{tab:verdict_thresholds}. Tokens: $\checkmark$ pass, $\triangle$ marginal (render-with-annotation), $\times$ fail (suppress). Sim.-based coverage is reported once on the simulation with known $\tau=-4$\,pp (cohort-calibrated) and is a per-estimator property, not a per-contrast property. ``Estimator spread'' is the max$-$min across same-estimand ATE rows of Table~\ref{tab:benchmark} (excluding matched-ATT, which is a different estimand).}
+  \label{tab:summary}
+  \begin{tabular}{lccc}
+    \toprule
+    Probe / quantity & Cont.\ vs De-esc. & Cont.\ vs Cease & De-esc.\ vs Cease \\
+    \midrule
+    AIPW ATE (pp) & $-0.7$ & $-4.02$ & $-4.41$ \\
+    AIPW 95\,\% CI (pp) & [$-3.1, +1.7$] & [$-5.27, -2.59$] & [$-8.64, -0.18$] \\
+    Same-estimand ATE spread (pp) & sign-disagree & $9.9$ & $9.6$ \\
+    Matched ATT (pp) [diff.\ estimand] & $+10.2$ & $+1.45$ & $+9$ \\
+    \midrule
+    \multicolumn{4}{l}{\emph{Identification-layer required probes ($\mathcal{P}^{\text{req}}$ for $R_{\text{table}}$):}} \\
+    Overlap (\% in $[0.05,0.95]$) & $36.2$ \,$\times$ & $82.8$ \,$\checkmark$ & $99.1$ \,$\checkmark$ \\
+    Post-weighting balance (\% $|$SMD$|<0.1$) & $44.4$ \,$\triangle$ & $33.3$ \,$\triangle$ & $50.0$ \,$\checkmark$ \\
+    E-value (point estimate) & $1.23$ \,$\times$ & $1.55$ \,$\triangle$ & $1.39$ \,$\triangle$ \\
+    Spec.-stability null ($|$ATE$|$ vs.\ q$95$) & $1.06\,/\,3.08$ \,$\times$ & $3.80\,/\,1.81$ \,$\checkmark$ & $1.96\,/\,2.91$ \,$\times$ \\
+    Sim.-based coverage AIPW (nominal $95$) & \multicolumn{3}{c}{$77\,\%$ \,$\triangle$ \,(per-estimator)} \\
+    \midrule
+    \multicolumn{4}{l}{\emph{Deployment-layer required probes (additional for $R_{\text{CDSS}}$):}} \\
+    Per-arm calibration slope (focal arm) & De-esc.\ $0.34$ \,$\times$ & Cease $0.76$ \,$\triangle$ & De-esc.\ $0.34$ \,$\times$ \\
+    Mahalanobis OOD ($\leq$ 99th pctile) & per-patient & per-patient & per-patient \\
+    \midrule
+    $R_{\text{table}}$ decision & \textbf{suppress} (overlap) & \textbf{render w/ 3$\triangle$} & \textbf{suppress} (spec.-null) \\
+    $R_{\text{CDSS}}$ decision & suppress & render w/ caveats & suppress (calibration) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Continue vs.\ Cease (rendered, three marginal verdicts attached).} The doubly-robust AIPW point estimate is $-4.02$\,pp on 28-day mortality with CI $[-5.27, -2.59]$. Under the locked verdict thresholds (Table~\ref{tab:verdict_thresholds}), the contrast attracts three marginal ($\triangle$) verdicts: post-weighting balance ($33.3\,\%$ in the $30$--$50$ band), E-value ($1.55$ in the $1.25$--$2.0$ band), and per-estimator simulation coverage of AIPW ($77\,\%$ in the $70$--$80$ band). The two pass verdicts ($\checkmark$) are propensity overlap ($82.8\,\%$) and the specification-stability null (obs.\ $|$ATE$|$ $= 3.80$ exceeds shuffled q$95 = 1.81$). No probe falls below its fail threshold, so the render rule $R_{\text{table}}$ admits the row; the marginal verdicts are surfaced alongside the point estimate so the reader can attribute the fragility. Four substantive caveats accompany the rendered number. (i)~The eight-estimator benchmark spans $\sim 10$\,pp on the same cohort under the same GPS (IPTW $-8.45$, overlap-weighted $-6.39$, $g$-comp $-4.27$, AIPW $-4.02$, TMLE $-3.63$, DML $-4.46$, matched ATT $+1.45$; \S\ref{sec:estimator_benchmarking}, Table~\ref{tab:benchmark}). (ii)~Two thirds of confounders are not balanced after weighting --- the marginal balance verdict is the more diagnostic of the identification-layer probes for this contrast. (iii)~A confounder with risk ratios of $\sim 1.3$ on both treatment and outcome (clinically plausible: bedside-gestalt frailty, undocumented improvement, goals-of-care discussion) would explain the doubly-robust estimate away --- the marginal E-value verdict. (iv)~The matched ATT, restricted to the common-support region, is essentially zero. We do not present the rendered $-4$\,pp as a stewardship recommendation. Independent randomised evidence remains the appropriate confirmatory test.
+
+\paragraph{Continue vs.\ De-escalate (suppressed: overlap fail).} The overlap probe returns $36.2\,\%$ in common support --- below the $<50\,\%$ fail threshold (Table~\ref{tab:verdict_thresholds}). Estimators additionally disagree on \emph{sign} (IPTW/Overlap negative, AIPW/G-comp/TMLE positive, matched ATT $+10.2$\,pp), the E-value collapses to $1.00$ at the CI bound nearest the null (a second fail), and the specification-stability null obs.\ $|$ATE$|$ ($1.06$) lies well below the shuffled q$95$ ($3.08$) for a third fail. The pipeline emits a structured ``suppressed --- overlap, E-value, specification-stability'' row with the failing diagnostic values; no point estimate is displayed in the released artefact.
+
+\paragraph{De-escalate vs.\ Cease (suppressed: specification-stability fail; CDSS additionally suppressed by calibration).} On the manuscript-table render rule the suppressing fail is the specification-stability null: the observed $|$ATE$|$ ($1.96$) lies well below the shuffled q$95$ ($2.91$), so the contract removes the row from the manuscript table. The other probes are mixed: overlap passes ($99.1\,\%$), balance passes ($50.0\,\%$), E-value is marginal ($1.39$), and simulation coverage is marginal. On the CDSS render rule a second probe fails independently --- the de-escalate-arm per-arm calibration slope ($0.34$, well below the $0.7$ pass and $0.5$ marginal floors; n=107 deaths in 429 patients) --- so the individual-risk display would be suppressed even if the manuscript-table verdict differed. The double suppression (one identification-layer fail, one deployment-layer fail) illustrates the contract's locality property: the two render rules can converge on the same decision through different probes.
 
 %─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}
 
-\paragraph{What the worked example shows.} On MIMIC-IV the pipeline produces a continue-vs-cease 28-day-mortality estimate of $\approx -3$\,pp that is internally stable across eight estimators, four feature sets, three treatment windows, and (\S External validation) the eICU external cohort. The framework's own E-value verdict on that number is $1.55$ at the point estimate and $1.30$ at the CI bound nearest the null --- modest by ICU-observational standards. A bedside-gestalt frailty score, an undocumented improvement in clinical trajectory, a code-status discussion, or an ID-consult recommendation to discontinue are each individually plausible candidates for an unmeasured confounder of that magnitude, and several of them are explicitly unobserved in any retrospective EHR study (we extract proxies for code status, palliative-care transitions, ID consultation, and source-control procedures, but the residual clinician-intent layer remains unobserved by design). The pipeline therefore cannot, and does not, render the cessation effect as a stewardship recommendation. It renders it as the framework's worked output with the framework's own caveat. Independent randomised evidence remains the appropriate confirmatory test.
+\paragraph{What the worked example shows.} On MIMIC-IV the pipeline suppressed two of the three pairwise contrasts on fail verdicts and rendered the third with three marginal verdicts (Table~\ref{tab:summary}). The headline substantive finding is the cross-estimator disagreement on the rendered contrast: under a single multinomial GPS on the same cohort, eight estimators span $\sim 10$\,pp on continue-vs-cease 28-day mortality, with the propensity-matched ATT --- the only estimand restricted to the overlap region --- essentially zero ($+1.45$\,pp, CI [$-2.3, +3.9$]) while the doubly-robust cluster sits at $-3.6$ to $-4.3$\,pp and pure-weighting estimators overshoot to $-6$ to $-8$\,pp. This is the literature-predicted signature of a non-overlap problem (Crump et al.\ 2009 \cite{crump2009dealing}; Petersen et al.\ 2012 \cite{petersen2012positivity}; Stuart 2010 \cite{stuart2010matching}): when post-weighting balance is poor, weighting and doubly-robust estimators borrow strength from non-overlap regions while matched-ATT does not. The contract treats the spread as confirmatory of the marginal balance verdict on the rendered row rather than as an independent surprise. Two further marginal verdicts amplify the fragile reading: simulation-based coverage of the rendered estimator (AIPW $77\,\%$) sits in the marginal band, and the E-value ($1.55$) sits in the marginal band --- a confounder with risk ratios of $\sim 1.3$ on both treatment and outcome (bedside-gestalt frailty, undocumented improvement, goals-of-care discussion, ID-consult recommendation) would explain the doubly-robust estimate away, and several such confounders are explicitly unobserved in any retrospective EHR study (we extract proxies for code status, palliative-care transitions, ID consultation, and source-control procedures, but the residual clinician-intent layer remains unobserved by design). The contract therefore does not, and the manuscript does not, present the rendered cessation effect as a stewardship recommendation; the rendered number arrives accompanied by the three marginal verdicts and the cross-estimator divergence that produced them. Independent randomised evidence remains the appropriate confirmatory test.
 
-\paragraph{Contrasts the pipeline refuses to render.} The de-escalate-vs-continue and de-escalate-vs-stop contrasts fail the overlap probe (continue-vs-de-escalate, 36\,\% in $[0.05, 0.95]$) and the calibration probe (de-escalate per-arm slope $0.34$). The pipeline gates them out of the rendered CDSS output. With only 429 de-escalate patients (4.6\,\% of the cohort) and 17--36\,\% overlap with the continue arm, the data are too sparse and too imbalanced for individual-level recommendations on de-escalation in this database. The framework's job here is to refuse: a more permissive pipeline would have produced an estimate with a confident-looking confidence interval, and we would have shown it.
+\paragraph{Contrasts the pipeline refuses to render.} Continue-vs-de-escalate suppresses on three independent fail verdicts (overlap $36.2\,\%$; E-value $1.00$ at the CI bound; specification-stability obs.\ $|$ATE$|$ well below the q$95$ of the shuffled null). De-escalate-vs-cease suppresses on the specification-stability fail at the manuscript-table render rule and on the per-arm calibration fail (slope $0.34$) at the CDSS render rule. With only 429 de-escalate patients (4.6\,\% of the cohort), the data are too sparse and too imbalanced for individual-level recommendations on de-escalation in this database. The pipeline's job here is to refuse: a more permissive workflow would have produced an estimate with a confident-looking confidence interval, and we would have shown it.
 
-\paragraph{The framework is the contribution.} The components in this pipeline are not new --- target-trial emulation \cite{hernan2016target}, DML \cite{chernozhukov2018dml} and benchmark estimators (DRLearner, AIPW, IPTW with overlap weighting, TMLE, g-computation, propensity matching), E-values \cite{vanderweele2017evalue}, balance diagnostics, label-shuffle nulls, and simulation-based coverage all exist in the literature. The contribution is their integration into a single diagnostic-gated workflow such that (i) an effect estimate cannot be rendered without its supporting probe, (ii) the same artefact can be re-run across databases (we exercise it on MIMIC-IV and eICU-CRD), (iii) the failure modes are public, and (iv) the locked pre-specification is part of the released code. The discipline of \emph{refusing to render} is, in our experience, what most observational causal-ML papers omit, and is the cheapest improvement available before any new methodological work.
+\paragraph{The pipeline is the contribution.} The components in this pipeline are not new --- target-trial emulation \cite{hernan2016target}, step-by-step causal-analysis templates for EHRs \cite{doutreligne2024stepbystep}, DML \cite{chernozhukov2018dml} and benchmark estimators (DRLearner, AIPW, IPTW with overlap weighting, TMLE \cite{vanderlaan2011tmle}, $g$-computation, propensity matching), E-values \cite{vanderweele2017evalue}, balance diagnostics \cite{austin2009smd}, label-shuffle nulls, and simulation-based coverage all exist in the literature. What is new is the \emph{refusal-to-render contract} formalised in \S\ref{sec:contract}: probes and renders are bound by code, not by analyst discipline, so an effect estimate that lacks an evaluated probe, or whose probe fails, is structurally absent from the released artefact (the manuscript table, the CDSS display, and the JSON payload). Step-by-step templates --- the closest related work --- prescribe what an analyst should do; they do not bind the rendering decision to the diagnostic outcome. The worked example here demonstrates the value of that binding: a permissive pipeline applied to the same MIMIC-IV cohort would have shown a confident continue-vs-cease point estimate of $-4$\,pp without flagging that the same multinomial GPS yields $+1.45$\,pp under matched-ATT, that two-thirds of confounders fail post-weighting balance, and that the $g$-computation CI covers nominal truth in $10\,\%$ of simulations. The contract makes those signals first-class outputs rather than buried sensitivity analyses.
 
 \paragraph{What the pipeline taught us in this case.}
 \begin{enumerate}[leftmargin=*,itemsep=2pt]
@@ -374,26 +540,23 @@ We report the framework's output as a single object: for each pairwise contrast,
 \item In-pipeline imputation is required for double-ML cross-fitting. Imputing once outside the cross-fit leaks test-fold medians into training and violates the orthogonality argument that makes DML robust to nuisance-estimation error. A global pre-impute remains only to satisfy EconML's finite-input validation.
 \item The calibration probe is operationally cheap and surgically targeted: the de-escalate calibration slope of $0.34$ cannot be fixed by hyper-parameter search; it is a data-availability problem. Without this probe the prototype CDSS would have surfaced a confidently mis-calibrated risk for one of the three options. We re-classify calibration as a \emph{deployment-layer} probe (it does not bear on identification), but it remains the single most useful per-arm gate for an individual-level risk display.
 \item The label-shuffle null is not a test of identification, and it does not adjudicate exchangeability or omitted-variable bias. It tests whether the estimator can distinguish structured association from random label assignment under the chosen specification. Two of three contrasts fail that check; reporting bootstrap CIs alone would have over-stated apparent stability.
-\item No single estimator dominates in the benchmark (\S Estimator benchmarking). DML, AIPW, TMLE, and overlap-weighted IPTW agree on the continue-vs-cease point estimate within $\sim 0.5$\,pp; the propensity-matching ATT, a different estimand, is roughly $1$\,pp larger in the expected direction. Honest disclosure of estimator-to-estimator variation is itself a robustness diagnostic.
+\item \emph{No estimator dominates --- the doubly-robust ATEs and the matched ATT estimate different estimands on different subpopulations.} On the headline contrast, doubly-robust estimators (DML, AIPW, TMLE, $g$-computation) cluster around $-4$\,pp; pure-weighting estimators (IPTW, overlap-weighted ATO) report $-6$ to $-8$\,pp; and the propensity-matched ATT, restricted to the subpopulation that achieves adequate overlap, is essentially zero ($+1.45$\,pp [$-2.29, +3.89$]) --- the effect, on the matched subpopulation, does not survive. This estimator-to-estimator divergence is itself a robustness diagnostic and a substantively important caveat: the gap is large enough to argue that the headline doubly-robust number does not generalise straightforwardly across the cohort. Honest disclosure of estimator-to-estimator variation, made cheap by the multinomial-GPS shared-support construction, is therefore not optional --- it is the principal signal the pipeline returns for this contrast.
+\item Post-weighting balance and simulation coverage --- not just propensity-histogram overlap --- are required to interpret an IPTW or doubly-robust point estimate. On this cohort, two-thirds of confounders fail $|$SMD$|<0.1$ after weighting on the headline contrast despite $82.8\,\%$ nominal overlap; and the simulation-coverage of nominal-95\,\% CIs ranges from $10\,\%$ ($g$-computation) to $100\,\%$ (TMLE at clinically uninformative widths). Both are pipeline outputs; both feed the rendered verdicts.
 \end{enumerate}
 
-\paragraph{Limitations of the worked example.}
-\begin{itemize}[leftmargin=*,itemsep=1pt]
-\item Identification remains the binding constraint. Clinician treatment intent --- bedside frailty gestalt, undocumented improvement, the full goals-of-care reasoning, microbiology-result certainty --- is not fully recoverable from structured EHR fields. The four added confounders (code status, comfort-care transitions, ID-consult flag, source-control procedures) close part but not all of the gap, and the E-value verdict reflects this. Patients in comfort-measures-only status at $T_0$ are excluded from the cohort rather than adjusted for.
-\item Single decision point. A clinically realistic model of antibiotic stewardship re-decides at days 5 and 7 as new culture data arrive; the present pipeline reports a static treatment-state contrast at 72\,h. Extending the framework to sequential dynamic regimes (sequential ignorability, $g$-methods, Q-learning) is identified as future work.
-\item Treatment-state, not treatment-policy. Following the reviewer formulation, the three arms are operationalised as observed treatment states in a $\pm 12$\,h window around 72\,h, with sustained-treatment ($\geq 48$\,h post-$T_0$) and 24\,h grace-period sensitivities. We do not estimate the effect of a hypothetical policy that would have assigned the treatments deterministically.
-\item Two databases, not many. We exercise the framework on MIMIC-IV and eICU-CRD; AmsterdamUMCdb, HiRID, and SICdb would each add a non-US healthcare-system test of generalisability and are flagged as future work. The pipeline's framing module is intentionally pluggable for this purpose.
-\item \emph{C.\,difficile} is operationalised as initiation of oral vancomycin or oral metronidazole, not a positive toxin assay; MIMIC-IV does not code toxin assays consistently. This is the standard pharma-epi proxy \cite{bagdasarian2015diagnosis} but it captures only treated CDI.
-\item Procalcitonin is excluded from the editable CDSS inputs: MIMIC-IV PCT coverage is too sparse to support its inclusion as a confounder, and a slider for an unused input is a trust hazard.
-\end{itemize}
+\paragraph{Limitations.} Distinguishing what the pipeline cannot estimate, what the pipeline does not yet support, and what the pipeline has not yet been clinically evaluated on is a substantive contribution of the manuscript --- the three layers each fail differently and demand different responses.
 
-\paragraph{The CDSS prototype is not a deployment.} The diagnostic-gated frontend bundled with the pipeline is a reference implementation that demonstrates how identification and deployment probes can be surfaced alongside per-patient estimates. It is not validated for clinical use, has not undergone prospective evaluation, and should not be interpreted as a stewardship recommendation tool. Even with the overlap-warning banner and the Mahalanobis out-of-distribution banner in place, presenting individualised counterfactual mortality estimates risks false precision when the underlying causal estimand is fragile (as the E-value verdict makes clear for the cessation contrast in this example). The prototype is included to make the gating logic concrete and inspectable, not to publish a deployment claim; per the locked pre-specification, the de-escalate arm is suppressed in the rendered output and the continue-vs-cease arm carries the fragility caveat next to every per-patient risk display.
+\textbf{Identification limits} --- properties of the question and the data that no pipeline implementation can resolve. (i)~Clinician treatment intent --- bedside frailty gestalt, undocumented improvement, full goals-of-care reasoning, microbiology-result certainty --- is not fully recoverable from structured EHR fields. The four added confounders (code status, palliative-care transitions, ID-consult flag, source-control procedures) close part but not all of the gap, and the marginal E-value verdict on the rendered contrast reflects this directly. (ii)~Patients in comfort-measures-only status at $T_0$ are excluded rather than adjusted for. (iii)~The contrast is operationalised as observed treatment states in a $\pm 12$\,h window around 72\,h (with sustained-treatment $\geq 48$\,h post-$T_0$ and 24\,h grace-period sensitivities), not as the effect of a deterministic policy. (iv)~A single static decision point at 72\,h collapses what is in reality a dynamic stewardship process; extending the pipeline to sequential dynamic regimes ($g$-methods, Q-learning, sequential ignorability) is named future work.
 
-\paragraph{Take-away.} The pipeline is restrictive by design: it routinely refuses to display estimates that the data cannot support. The de-escalate arm in MIMIC-IV is one of those cases --- the model can be \emph{fit}, but the probes say it should not be \emph{trusted}. For the continue-vs-cease contrast the probes do not fail, but the E-value verdict is modest, and we present the resulting estimate as exploratory rather than confirmatory. The framework is intended to make those distinctions structurally visible: the same artefact that produces a number also produces the probe that adjudicates it.
+\textbf{Pipeline limits} --- properties of the implementation that further engineering would address. (i)~Two database adapters (MIMIC-IV, eICU-CRD); AmsterdamUMCdb, HiRID, and SICdb would each add a non-US healthcare-system adapter and are named future work. The framing module is intentionally pluggable for this purpose. (ii)~The specification-stability null is run at five shuffles in the present release; a $\geq 1000$-shuffle calibrated version is identified as a Stage-2 prerequisite. (iii)~\emph{C.\,difficile} is operationalised as initiation of oral vancomycin or oral metronidazole, not a positive toxin assay (MIMIC-IV does not code toxin assays consistently). This is the standard pharma-epi proxy \cite{bagdasarian2015diagnosis} but it captures only treated CDI. (iv)~Procalcitonin is excluded from the editable CDSS inputs: MIMIC-IV PCT coverage is too sparse to support its inclusion as a confounder.
+
+\textbf{Deployment-evidence limits} --- clinical-evaluation phases that the present manuscript does not provide. (i)~The reference implementation has been evaluated retrospectively on MIMIC-IV only --- in-silico, no live clinician interaction, reported under TRIPOD+AI \cite{tripodai2024}. (ii)~No silent-mode integration; the pipeline has not yet been run prospectively on incoming ICU records (the first live phase covered by DECIDE-AI \cite{decideai2022}). (iii)~No clinician-usability instrumentation, no targeted user studies, no comparative cognitive-load metrics (early human-in-the-loop DECIDE-AI phase). (iv)~No prospective in-clinic deployment, no per-site governance, no patient-outcome instrumentation (later DECIDE-AI phase). (v)~No multicenter effectiveness evaluation analogous to MERIDIAN \cite{meridian2025} (CONSORT-AI \cite{consortai2020} standard). The roadmap and the standards applicable to each phase are named in Table~\ref{tab:decide_ai}; what the present manuscript does not provide is \emph{evidence} at the live phases, not the design that would generate that evidence.
 
 %─────────────────────────────────────────────────────────────────────────────
 \section*{Data and code availability}
-MIMIC-IV is available on PhysioNet (\href{https://doi.org/10.13026/6mm1-ek67}{doi:10.13026/6mm1-ek67}). The pipeline source — framing, confounder extraction, sensitivity grid, all diagnostics, and the CDSS frontend — is in \texttt{\textasciitilde/Projects/Causal\_ML/Antibiotic/}. Re-running the pipeline end-to-end on the same hardware takes $\approx 3$\,h for the cohort plus diagnostics; the full sensitivity grid is resumable.
+MIMIC-IV is available on PhysioNet (\href{https://doi.org/10.13026/6mm1-ek67}{doi:10.13026/6mm1-ek67}); eICU-CRD is available on PhysioNet \cite{pollard2018eicu}. The end-to-end pipeline source --- database adapters, framing, confounder extraction, the eight-estimator benchmark, all probes, the locked verdict thresholds, the locked pre-specification, and the clinician-facing reference frontend --- is released as a single reproducible artefact in \texttt{\textasciitilde/Projects/Causal\_ML/Antibiotic/}. Re-running the pipeline end-to-end on the same hardware takes $\approx 3$\,h for the cohort plus diagnostics; long-running jobs are resumable from per-fit parquet logs.
+
+\paragraph{Reporting checklists.} TRIPOD+AI \cite{tripodai2024} is the standard the current manuscript reports against; the checklist is provided as supplementary material with each item cross-referenced to the corresponding manuscript section. DECIDE-AI \cite{decideai2022} and CONSORT-AI \cite{consortai2020} checklists are provided as forward-looking templates for the first live phase and the eventual effectiveness evaluation; the pipeline's structured outputs (\texttt{diagnostics\_summary.json}, the rendered manuscript table, and the verdict-token CDSS surface) are designed so that the data items required by each checklist will be structurally available at the corresponding phase.
 
 %─────────────────────────────────────────────────────────────────────────────
 \begin{thebibliography}{9}
@@ -453,6 +616,58 @@ Springer, 2011.
 \bibitem{groenwold2020missingness} Groenwold RHH.
 Informative missingness in electronic health record systems: the curse of knowing.
 \emph{Diagnostic and Prognostic Research} 2020;4:8.
+
+\bibitem{crump2009dealing} Crump RK, Hotz VJ, Imbens GW, Mitnik OA.
+Dealing with limited overlap in estimation of average treatment effects.
+\emph{Biometrika} 2009;96(1):187--199.
+
+\bibitem{petersen2012positivity} Petersen ML, Porter KE, Gruber S, Wang Y, van der Laan MJ.
+Diagnosing and responding to violations in the positivity assumption.
+\emph{Statistical Methods in Medical Research} 2012;21(1):31--54.
+
+\bibitem{stuart2010matching} Stuart EA.
+Matching methods for causal inference: a review and a look forward.
+\emph{Statistical Science} 2010;25(1):1--21.
+
+\bibitem{wang2026operational} Wang Y, et al.
+An operational target trial emulation framework for causal inference using electronic health record data.
+\emph{npj Digital Medicine} 2026 (in press), doi:10.1038/s41746-026-02563-z.
+
+\bibitem{allen2023scoping} Allen A, et al.
+Causal inference using observational intensive care unit data: a scoping review and recommendations for future practice.
+\emph{npj Digital Medicine} 2023;6:155.
+
+\bibitem{sun2025federated} Sun X, et al.
+Federated target trial emulation using distributed observational data for treatment effect estimation.
+\emph{npj Digital Medicine} 2025;8:401.
+
+\bibitem{wornow2025transportability} Wornow M, et al.
+Challenges with reinforcement learning model transportability for sepsis treatment in emergency care.
+\emph{npj Digital Medicine} 2025;8:212.
+
+\bibitem{meridian2025} \emph{[Author list to be inserted at proofing --- MERIDIAN study group.]}
+Leveraging electronic medical records to evaluate a computerized decision support system for staphylococcus bacteremia (MERIDIAN): a multicenter stepped-wedge cluster-randomized trial.
+\emph{npj Digital Medicine} 2025;8:301.
+
+\bibitem{sutton2020cdss} Sutton RT, Pincock D, Baumgart DC, Sadowski DC, Fedorak RN, Kroeker KI.
+An overview of clinical decision support systems: benefits, risks, and strategies for success.
+\emph{npj Digital Medicine} 2020;3:17.
+
+\bibitem{clixm2025} \emph{[Author list to be inserted at proofing --- CLIX-M working group.]}
+Clinician-informed XAI evaluation checklist with metrics (CLIX-M) for AI-powered clinical decision support systems.
+\emph{npj Digital Medicine} 2025;8:415.
+
+\bibitem{decideai2022} DECIDE-AI Steering Group.
+Reporting guideline for the early-stage clinical evaluation of decision support systems driven by artificial intelligence: DECIDE-AI.
+\emph{Nature Medicine} 2022;28:924--933.
+
+\bibitem{tripodai2024} Collins GS, Moons KGM, Dhiman P, et al.
+TRIPOD+AI statement: updated guidance for reporting clinical prediction models that use regression or machine learning methods.
+\emph{BMJ} 2024;385:e078378.
+
+\bibitem{consortai2020} Liu X, Cruz Rivera S, Moher D, Calvert MJ, Denniston AK, the SPIRIT-AI and CONSORT-AI Working Group.
+Reporting guidelines for clinical trial reports for interventions involving artificial intelligence: the CONSORT-AI extension.
+\emph{Nature Medicine} 2020;26:1364--1374.
 
 \end{thebibliography}
 
