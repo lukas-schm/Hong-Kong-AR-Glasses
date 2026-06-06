@@ -425,7 +425,7 @@ export function DAG({ onNodeClick }: DAGProps) {
     if (!svg) return;
     const sel = d3Selection.select(svg);
     sel.selectAll<SVGGElement, SimNode>('g.dag-node').each(function(d) {
-      const g = d3Selection.select(this);
+      const g = d3Selection.select<SVGGElement, SimNode>(this);
       setNodeValueText(g.select<SVGTextElement>('.dag-node__value'), getNodeValue(d, state));
       g.select('.dag-node__circle').transition().duration(300).attr('fill', getNodeFillByValue(d, state));
       g.select('.dag-node__selection-ring').attr('opacity', state.selectedNodeId === d.id ? 1 : 0);

@@ -36,7 +36,7 @@ export function NodeEditor({ nodeId, position, onClose }: NodeEditorProps) {
 
   if (!node || !node.stateKey) return null;
 
-  const val = (state as Record<string, unknown>)[node.stateKey];
+  const val = (state as unknown as Record<string, unknown>)[node.stateKey];
 
   const handleChange = (value: string | number) => {
     dispatch({ type: 'SET_VARIABLE', key: node.stateKey!, value });

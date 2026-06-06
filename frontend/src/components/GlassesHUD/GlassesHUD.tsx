@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { ExemplarPatient } from '../../data/exemplarPatients';
 import './GlassesHUD.css';
 
@@ -8,9 +8,29 @@ import './GlassesHUD.css';
    Right: swipeable cards (one per decision, then similar patients).
    ──────────────────────────────────────────────────────────────────────── */
 
+export interface HUDAssistant {
+  supported: boolean;
+  listening: boolean;
+  /** Live partial transcript while the user is speaking. */
+  interim: string;
+  /** Last final voice transcript — shown as the user's side of the chat. */
+  lastUtterance: string | null;
+  /** Last assistant reply, rendered inside the waveguide. */
+  reply: string | null;
+  busy: boolean;
+  /** Tap on the glasses (anywhere on the display) toggles listening. */
+  onTap: () => void;
+}
+
 interface GlassesHUDProps {
-  patient: ExemplarPatient;
+  /** null → standby: no patient loaded yet, tap and say a name. */
+  patient: ExemplarPatient | null;
   onClose: () => void;
+  assistant?: HUDAssistant;
+  /** Read-only mirror: bare display, no overlay, no input. */
+  mirror?: boolean;
+  /** Embedded interactive HUD: bare display, no overlay, taps still work. */
+  embedded?: boolean;
 }
 
 interface RedFlag { label: string; value: string; severity: 'crit' | 'warn' }
@@ -131,31 +151,67 @@ const MOCK_SIMILAR = [
   { tx: 'Narrowed', survived: true, days: 'home day 11' },
   { tx: 'Kept', survived: true, days: 'home day 14' },
   { tx: 'Stopped', survived: false, days: 'died day 6' },
-  { tx: 'Kept', survived: false, days: 'died day 12' },
+  { tx: 'Stopped', survived: false, days: 'died day 12' },
 ];
 
+const TX_PHRASE: Record<string, string> = {
+  Narrowed: 'narrowing antibiotics',
+  Kept: 'keeping broad cover',
+  Stopped: 'stopping antibiotics',
+};
+
 function SimilarPatientsCard() {
-  const survived = MOCK_SIMILAR.filter((r) => r.survived).length;
+  // Contrast outcomes by treatment so the takeaway is what was done and
+  // what happened, not just a head count.
+  const groups = Array.from(
+    MOCK_SIMILAR.reduce((m, r) => {
+      const g = m.get(r.tx) ?? { tx: r.tx, n: 0, survived: 0 };
+      g.n += 1;
+      if (r.survived) g.survived += 1;
+      return m.set(r.tx, g);
+    }, new Map<string, { tx: string; n: number; survived: number }>()).values(),
+  ).sort((a, b) => b.survived / b.n - a.survived / a.n);
+  const best = groups[0];
+  const worst = groups[groups.length - 1];
+  const bestPhrase = TX_PHRASE[best.tx] ?? best.tx.toLowerCase();
   return (
-    <div className="ghud-card__body ghud-sentence">
-      {survived} of the {MOCK_SIMILAR.length} most similar past patients survived.
+    <div className="ghud-card__body ghud-sentence ghud-sentence--similar">
+      <div>
+        {bestPhrase.charAt(0).toUpperCase() + bestPhrase.slice(1)} led to survival
+        — <strong>{best.survived} of {best.n}</strong> went home — while{' '}
+        {TX_PHRASE[worst.tx] ?? worst.tx.toLowerCase()} generally led to death
+        — <strong>{worst.n - worst.survived} of {worst.n}</strong> died.
+      </div>
+      <div className="ghud-sentence__sub">
+        from the {MOCK_SIMILAR.length} most similar past patients
+      </div>
     </div>
   );
 }
 
-export function GlassesHUD({ patient, onClose }: GlassesHUDProps) {
-  const flags = useMemo(() => deriveRedFlags(patient), [patient]);
-  const decisions = useMemo(() => deriveDecisions(patient), [patient]);
+export function GlassesHUD({ patient, onClose, assistant, mirror = false, embedded = false }: GlassesHUDProps) {
+  const bare = mirror || embedded; // bare = no fullscreen overlay
+  const flags = useMemo(() => (patient ? deriveRedFlags(patient) : []), [patient]);
+  const decisions = useMemo(() => (patient ? deriveDecisions(patient) : []), [patient]);
   const [card, setCard] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const cards = useMemo(() => {
-    const list = [
+    if (!patient) {
+      return [{
+        title: 'Standby',
+        render: () => (
+          <div className="ghud-card__body ghud-sentence">
+            Tap, then say a patient name — e.g. “Chan Tai Man”.
+          </div>
+        ),
+      }];
+    }
+    return [
       { title: 'Similar patients', render: () => <SimilarPatientsCard /> },
       ...decisions.map((d) => ({ title: d.axis, render: () => <DecisionCard decision={d} /> })),
     ];
-    return list;
-  }, [decisions]);
+  }, [patient, decisions]);
   const total = cards.length;
 
   const scrollToCard = (idx: number) => {
@@ -166,6 +222,7 @@ export function GlassesHUD({ patient, onClose }: GlassesHUDProps) {
   };
 
   useEffect(() => {
+    if (bare) return; // an embedded/mirror HUD must not capture page keys
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') scrollToCard(card + 1);
@@ -182,14 +239,23 @@ export function GlassesHUD({ patient, onClose }: GlassesHUDProps) {
     if (idx !== card) setCard(idx);
   };
 
-  return (
-    <div className="ghud-overlay" onClick={onClose}>
-      <div className="ghud-display" onClick={(e) => e.stopPropagation()}>
+  // Tapping anywhere on the glasses display toggles voice listening
+  // (temple-tap metaphor); clicking outside the display closes the HUD.
+  const handleDisplayTap = (e: MouseEvent) => {
+    e.stopPropagation();
+    if (!mirror) assistant?.onTap();
+  };
+
+  const display = (
+    <div
+      className={`ghud-display ${assistant?.listening ? 'ghud-display--listening' : ''} ${bare ? 'ghud-display--bare' : ''} ${mirror ? 'ghud-display--mirror' : ''}`}
+      onClick={handleDisplayTap}
+    >
 
         {/* ── Left fixed: patient + top concerns ── */}
         <aside className="ghud-left">
-          <div className="ghud-name">{patient.name}</div>
-          <div className="ghud-meta">{patient.subtitle}</div>
+          <div className="ghud-name">{patient ? patient.name : 'CDSS'}</div>
+          <div className="ghud-meta">{patient ? patient.subtitle : 'no patient loaded'}</div>
           <ul className="ghud-flags">
             {flags.map((f) => (
               <li key={f.label} className={`ghud-flag ghud-flag--${f.severity}`}>
@@ -214,10 +280,44 @@ export function GlassesHUD({ patient, onClose }: GlassesHUDProps) {
           </div>
           <div className="ghud-dots">
             {cards.map((c, i) => (
-              <button key={c.title} className={`ghud-dot ${i === card ? 'ghud-dot--active' : ''}`} onClick={() => scrollToCard(i)} aria-label={c.title} />
+              <button
+                key={c.title}
+                className={`ghud-dot ${i === card ? 'ghud-dot--active' : ''}`}
+                onClick={(e) => { e.stopPropagation(); scrollToCard(i); }}
+                aria-label={c.title}
+              />
             ))}
           </div>
         </main>
+
+        {/* ── Assistant: tap-to-talk status + transcript + reply ── */}
+        {assistant && (
+          <div className="ghud-assist">
+            <span className={`ghud-assist__state ${assistant.listening ? 'ghud-assist__state--on' : ''}`}>
+              {!assistant.supported ? '✕ NO VOICE' : assistant.listening ? '● LISTENING' : '○ TAP TO SPEAK'}
+            </span>
+            {assistant.interim ? (
+              <span className="ghud-assist__interim">{assistant.interim}…</span>
+            ) : assistant.busy || assistant.reply ? (
+              <span className="ghud-assist__chat">
+                {assistant.lastUtterance && (
+                  <span className="ghud-chat__row ghud-chat__row--user">
+                    <span className="ghud-chat__who">YOU</span>
+                    {assistant.lastUtterance}
+                  </span>
+                )}
+                <span className="ghud-chat__row ghud-chat__row--llm">
+                  <span className="ghud-chat__who">LLM</span>
+                  {assistant.busy ? <i>thinking…</i> : assistant.reply}
+                </span>
+              </span>
+            ) : (
+              <span className="ghud-assist__hint">
+                {patient ? 'say a vital · an intervention · another name' : 'say a patient name'}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* ── Bottom fixed: the plan ── */}
         <footer className="ghud-bottom">
@@ -231,7 +331,15 @@ export function GlassesHUD({ patient, onClose }: GlassesHUDProps) {
             );
           })}
         </footer>
-      </div>
+    </div>
+  );
+
+  // Bare modes render just the display (the monitor frame scales it);
+  // the standalone mode keeps the click-outside-to-close overlay.
+  if (bare) return display;
+  return (
+    <div className="ghud-overlay" onClick={onClose}>
+      {display}
     </div>
   );
 }

@@ -67,9 +67,9 @@ function reducer(state: PatientState, action: Action): PatientState {
       const next = { ...state };
       for (const k of PATIENT_PARAMETER_KEYS) {
         if (k in overrides) {
-          (next as Record<string, unknown>)[k] = (overrides as Record<string, unknown>)[k];
+          (next as unknown as Record<string, unknown>)[k] = (overrides as Record<string, unknown>)[k];
         } else {
-          (next as Record<string, unknown>)[k] = (initialState as Record<string, unknown>)[k];
+          (next as unknown as Record<string, unknown>)[k] = (initialState as unknown as Record<string, unknown>)[k];
         }
       }
       return {
@@ -90,7 +90,7 @@ function reducer(state: PatientState, action: Action): PatientState {
     }
 
     case 'SET_VARIABLE': {
-      const prevVal = (state as Record<string, unknown>)[action.key];
+      const prevVal = (state as unknown as Record<string, unknown>)[action.key];
       const changed = prevVal !== action.value;
       const modifiedKeys = changed
         ? [...new Set([...state.modifiedKeys, action.key])]
@@ -190,9 +190,9 @@ function reducer(state: PatientState, action: Action): PatientState {
       const next = { ...state };
       for (const k of PATIENT_PARAMETER_KEYS) {
         if (k in base) {
-          (next as Record<string, unknown>)[k] = (base as Record<string, unknown>)[k];
+          (next as unknown as Record<string, unknown>)[k] = (base as Record<string, unknown>)[k];
         } else {
-          (next as Record<string, unknown>)[k] = (initialState as Record<string, unknown>)[k];
+          (next as unknown as Record<string, unknown>)[k] = (initialState as unknown as Record<string, unknown>)[k];
         }
       }
       return { ...next, modifiedKeys: [], outcomeLoading: true, apiOutcomes: null };
@@ -202,7 +202,7 @@ function reducer(state: PatientState, action: Action): PatientState {
       const src = state.loadedPatientProfile as Partial<PatientState>;
       const orig = action.key in src
         ? (src as Record<string, unknown>)[action.key]
-        : (initialState as Record<string, unknown>)[action.key];
+        : (initialState as unknown as Record<string, unknown>)[action.key];
       return {
         ...state,
         [action.key]: orig,

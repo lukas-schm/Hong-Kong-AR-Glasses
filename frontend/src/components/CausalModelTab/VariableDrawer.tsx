@@ -119,7 +119,7 @@ export function VariableDrawer({ isOpen, onToggle }: VariableDrawerProps) {
               </div>
 
               {section.vars.map(v => {
-                const val = (state as Record<string, unknown>)[v.key];
+                const val = (state as unknown as Record<string, unknown>)[v.key];
                 const isModified = state.modifiedKeys.includes(v.key);
 
                 return (

@@ -24,11 +24,101 @@
   text-shadow: 0 0 6px rgba(108, 255, 154, 0.4);
   display: grid;
   grid-template-columns: 230px 1fr;
-  grid-template-rows: 1fr 40px;
+  grid-template-rows: 1fr auto 40px;
   grid-template-areas:
     'left right'
+    'assist assist'
     'bottom bottom';
   gap: 0;
+}
+
+/* ── Assistant: voice transcript + reply ── */
+.ghud-assist {
+  grid-area: assist;
+  border-top: 1px solid var(--g-faint);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 16px;
+  min-height: 28px;
+  max-height: 72px;
+  font-size: 12px;
+  overflow-y: auto;
+}
+
+.ghud-display { cursor: pointer; }
+
+.ghud-display--listening {
+  box-shadow: inset 0 0 24px rgba(108, 255, 154, 0.12);
+}
+
+/* Bare (embedded/mirror): fixed size so the monitor frame can scale it. */
+.ghud-display--bare {
+  width: 900px;
+  height: 300px;
+  max-width: none;
+}
+
+/* Read-only mirror: non-interactive cursor. */
+.ghud-display--mirror { cursor: default; }
+
+.ghud-assist__state {
+  flex-shrink: 0;
+  color: var(--g-dim);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.ghud-assist__state--on {
+  color: var(--g);
+  animation: ghud-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ghud-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.ghud-assist__interim {
+  color: var(--g-dim);
+  font-style: italic;
+}
+
+.ghud-assist__reply { white-space: pre-line; line-height: 1.4; }
+
+/* mini chat: voice question + LLM answer */
+.ghud-assist__chat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ghud-chat__row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  line-height: 1.35;
+}
+
+.ghud-chat__row--user { color: var(--g-dim); }
+
+.ghud-chat__row--llm { white-space: pre-line; }
+
+.ghud-chat__who {
+  flex-shrink: 0;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--g-dim);
+  border: 1px solid var(--g-faint);
+  border-radius: 2px;
+  padding: 0 4px;
+}
+
+.ghud-assist__hint {
+  color: var(--g-dim);
+  letter-spacing: 0.06em;
+  font-size: 10px;
 }
 
 /* ── Left: patient + concerns ── */
@@ -200,6 +290,25 @@
   line-height: 1.35;
   letter-spacing: 0.01em;
   max-width: 88%;
+}
+
+/* longer treated-vs-untreated contrast needs a slightly smaller size */
+.ghud-sentence--similar {
+  font-size: 18px;
+  font-weight: 600;
+  gap: 8px;
+}
+
+.ghud-sentence--similar strong {
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(108, 255, 154, 0.55);
+}
+
+.ghud-sentence__sub {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--g-dim);
+  letter-spacing: 0.06em;
 }
 
 /* dots */

@@ -1,4 +1,5 @@
 import type { PatientState, ExtendedOutcomes, SimilarPatient } from '../types';
+import { monitor } from '../utils/monitor';
 
 const BASE = '/api/v1';
 
@@ -47,11 +48,16 @@ export async function fetchPrediction(
   treatmentId: string,
   signal?: AbortSignal,
 ): Promise<ExtendedOutcomes> {
-  return apiFetch<ExtendedOutcomes>('/predict', {
+  const payload = toApiPayload(state, treatmentId);
+  // Surface the exact feature vector going into the model on the monitor.
+  monitor({ kind: 'model-req', arm: treatmentId, features: payload });
+  const res = await apiFetch<ExtendedOutcomes>('/predict', {
     method: 'POST',
-    body: JSON.stringify(toApiPayload(state, treatmentId)),
+    body: JSON.stringify(payload),
     signal,
   });
+  monitor({ kind: 'model-res', arm: treatmentId, mortality: Math.round(res.withTreatment) });
+  return res;
 }
 
 export async function fetchSimilarPatients(

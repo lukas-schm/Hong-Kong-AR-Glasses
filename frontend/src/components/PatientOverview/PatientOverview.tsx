@@ -19,12 +19,6 @@ interface LiveOutcomes {
   effect: number; // pp difference between best and worst arm
 }
 
-const TREATMENT_LABELS: Record<TreatmentId, string> = {
-  continue: 'Continue broad-spectrum',
-  deescalate: 'De-escalate to narrow',
-  cease: 'Cease antibiotics',
-};
-
 const SHORT_LABELS: Record<TreatmentId, string> = {
   continue: 'Continue',
   deescalate: 'De-escalate',
@@ -37,17 +31,6 @@ const TREATMENT_TONE: Record<TreatmentId, string> = {
   cease: 'card__outcome--cease',
 };
 
-const REC_TONE: Record<TreatmentId, string> = {
-  continue: 'card__rec--continue',
-  deescalate: 'card__rec--deescalate',
-  cease: 'card__rec--cease',
-};
-
-const REC_DOT: Record<TreatmentId, string> = {
-  continue: '#e85c4a',
-  deescalate: '#2e8bff',
-  cease: '#37d6a0',
-};
 
 function profileToState(profile: ExemplarPatient['profile']): PatientState | null {
   const required: Array<keyof PatientState> = [
