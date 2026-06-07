@@ -161,24 +161,14 @@ def _payload(s: Dict[str, Any], arm: str) -> Dict[str, Any]:
 
 def predict_arms(db: Database, reference_key: str,
                  override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Score all three arms against the trained model; cached fallback offline."""
+    """Three-arm values, served from the cached estimates in the warehouse.
+
+    The AR build ships without the live ML model/pipeline; the trained-model
+    scoring path was removed and predictions come from the seeded cache.
+    """
     s = db.query_one("SELECT * FROM patient_state WHERE reference_key = ?", (reference_key,))
     if not s:
         return {"values": {}, "live": False}
-    s = dict(s)
-    if override:
-        s.update(override)
-    if _store is not None and getattr(_store, "ready", False):
-        try:
-            from ..feature_map import payload_to_features
-            vals = {}
-            for arm in ("continue", "deescalate", "cease"):
-                feats = payload_to_features(_payload(s, arm))
-                res = _store.predict(feats, arm)
-                vals[arm] = round(float(res["withTreatment"]))
-            return {"values": vals, "live": True}
-        except Exception:
-            pass
     meta = _meta(db, reference_key).get("cached", {})
     vals = {k: meta.get(k) for k in ("continue", "deescalate", "cease") if meta.get(k) is not None}
     return {"values": vals, "live": False}
