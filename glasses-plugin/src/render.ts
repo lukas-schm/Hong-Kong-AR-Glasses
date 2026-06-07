@@ -19,6 +19,7 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk';
 import type { Arm, CohortOutcomes, PatientRecord } from './cdars';
 import { deriveDecisions, deriveRedFlags } from './clinical';
+import type { PhonePanel } from './phonePanel';
 
 export type PageKind = 'worklist' | 'patient';
 
@@ -28,6 +29,7 @@ export const CARD_COUNT = 4;
 export interface RenderState {
   page: PageKind;
   patients: PatientRecord[];
+  worklistIndex: number;        // app-managed worklist cursor (▸)
   current: PatientRecord | null;
   predictions: Record<Arm, number> | null;
   cohort: CohortOutcomes | null;
@@ -50,10 +52,17 @@ function worklistHeader(st: RenderState): string {
   return `CDARS · ACTIVE PATIENTS (${st.patients.length}) ${dot}`;
 }
 
-export function menuItems(st: RenderState): string[] {
-  return st.patients.slice(0, 20).map((p) =>
-    clip(`${p.nameEn} · ${p.hospitalCode ?? '—'} · ${p.outcomes.recommendedAction}`, 64));
+/** App-managed worklist body: one row per patient, ▸ marks the cursor. */
+export function worklistBody(st: RenderState): string {
+  if (!st.patients.length) {
+    return st.connected ? 'no active patients' : 'CDARS server unreachable — check Wi-Fi';
+  }
+  return st.patients.slice(0, 8).map((p, i) => {
+    const cur = i === st.worklistIndex ? '▶ ' : '   ';
+    return cur + clip(`${p.nameEn} · ${p.hospitalCode ?? '—'} · ${p.outcomes.recommendedAction}`, 58);
+  }).join('\n');
 }
+
 
 function patientHeader(p: PatientRecord): string {
   const ward = p.ward?.en ? ` · ${p.ward.en}` : '';
@@ -89,49 +98,64 @@ function cardText(st: RenderState): string {
   ].filter(Boolean).join('\n');
 }
 
-function agentText(st: RenderState): string {
-  if (st.listening) return '● LISTENING…';
-  if (st.reply) {
-    const you = st.lastUtterance ? `YOU: ${clip(st.lastUtterance, 60)}\n` : '';
-    return clip(`${you}LLM: ${st.reply}`, 500);
-  }
-  return 'tap: talk · scroll: cards · double-tap: patients';
+type Variant = 'worklist' | 'cards' | 'voice';
+
+/** Which patient-page layout to show: the decision cards, or the voice window. */
+function variant(st: RenderState): Variant {
+  if (st.page !== 'patient' || !st.current) return 'worklist';
+  return st.listening || st.reply ? 'voice' : 'cards';
 }
+
+/** Text shown in the patient-page voice window: listening / thinking / answer. */
+function voiceBody(st: RenderState): string {
+  if (st.listening) return '● LISTENING…\n\ntap again to send your question';
+  if (st.reply === '…') return 'Thinking…';
+  return clip(st.reply ?? '', 1000);
+}
+
+const CARDS_HINT = 'tap: talk · scroll: cards · double-tap: patients';
+const VOICE_HINT = 'tap: ask again · scroll: cards · double-tap: back';
 
 /* ── pages ── */
 
 function worklistPage(st: RenderState) {
+  // App-managed list (text container) so the ▸ cursor is driven by the app —
+  // moved identically by the physical touchpad and the phone control buttons.
   return {
     containerTotalNum: 3,
     textObject: [
-      { containerID: ID.hdr, containerName: 'hdr', xPosition: 0, yPosition: 0, width: 576, height: 36, content: worklistHeader(st), isEventCapture: 0 },
-      { containerID: ID.ftr, containerName: 'ftr', xPosition: 0, yPosition: 252, width: 576, height: 36, content: st.connected ? 'scroll: move · tap: open patient' : 'CDARS server unreachable — check Wi-Fi / server URL', isEventCapture: 0 },
-    ],
-    listObject: [
-      {
-        containerID: ID.menu, containerName: 'menu',
-        xPosition: 0, yPosition: 40, width: 576, height: 208,
-        paddingLength: 4, isEventCapture: 1,
-        itemContainer: {
-          itemCount: Math.max(1, Math.min(st.patients.length, 20)),
-          itemWidth: 0,
-          isItemSelectBorderEn: 1,
-          itemName: st.patients.length ? menuItems(st) : ['no active patients'],
-        },
-      },
+      { containerID: ID.hdr, containerName: 'hdr', xPosition: 10, yPosition: 0, width: 556, height: 38, content: worklistHeader(st), isEventCapture: 0 },
+      { containerID: ID.menu, containerName: 'menu', xPosition: 10, yPosition: 44, width: 556, height: 200, content: worklistBody(st), isEventCapture: 1 },
+      { containerID: ID.ftr, containerName: 'ftr', xPosition: 10, yPosition: 250, width: 556, height: 38, content: st.connected ? 'scroll: move · tap: open' : 'CDARS server unreachable — check Wi-Fi / server URL', isEventCapture: 0 },
     ],
   };
 }
 
 function patientPage(st: RenderState) {
   const p = st.current!;
+  const hdr = { containerID: ID.hdr, containerName: 'hdr', xPosition: 10, yPosition: 0, width: 556, height: 60, content: patientHeader(p), isEventCapture: 0 };
+
+  // Voice window: full-width text answer/status. The answer box captures events
+  // (tap = ask again, scroll = back to cards, double-tap = worklist).
+  if (st.listening || st.reply) {
+    return {
+      containerTotalNum: 3,
+      textObject: [
+        hdr,
+        { containerID: ID.card, containerName: 'card', xPosition: 10, yPosition: 64, width: 556, height: 150, content: voiceBody(st), isEventCapture: 1 },
+        { containerID: ID.agent, containerName: 'agent', xPosition: 10, yPosition: 216, width: 556, height: 72, content: VOICE_HINT, isEventCapture: 0 },
+      ],
+    };
+  }
+
+  // Default: red-flags box + decision card carousel.
   return {
     containerTotalNum: 4,
     textObject: [
-      { containerID: ID.hdr, containerName: 'hdr', xPosition: 0, yPosition: 0, width: 576, height: 44, content: patientHeader(p), isEventCapture: 0 },
-      { containerID: ID.flags, containerName: 'flags', xPosition: 0, yPosition: 48, width: 196, height: 160, paddingLength: 4, borderWidth: 1, borderColor: 6, borderRadius: 3, content: flagsText(p), isEventCapture: 0 },
-      { containerID: ID.card, containerName: 'card', xPosition: 204, yPosition: 48, width: 372, height: 160, paddingLength: 4, borderWidth: 1, borderColor: 10, borderRadius: 3, content: cardText(st), isEventCapture: 1 },
-      { containerID: ID.agent, containerName: 'agent', xPosition: 0, yPosition: 212, width: 576, height: 76, paddingLength: 4, content: agentText(st), isEventCapture: 0 },
+      hdr,
+      { containerID: ID.flags, containerName: 'flags', xPosition: 0, yPosition: 64, width: 196, height: 150, paddingLength: 4, borderWidth: 1, borderColor: 6, borderRadius: 3, content: flagsText(p), isEventCapture: 0 },
+      { containerID: ID.card, containerName: 'card', xPosition: 204, yPosition: 64, width: 372, height: 150, paddingLength: 4, borderWidth: 1, borderColor: 10, borderRadius: 3, content: cardText(st), isEventCapture: 1 },
+      { containerID: ID.agent, containerName: 'agent', xPosition: 10, yPosition: 216, width: 556, height: 72, content: CARDS_HINT, isEventCapture: 0 },
     ],
   };
 }
@@ -141,9 +165,9 @@ function patientPage(st: RenderState) {
 export class Renderer {
   private booted = false;
   private chain: Promise<unknown> = Promise.resolve();
-  private lastPage: PageKind | null = null;
+  private lastVariant: Variant | null = null;
 
-  constructor(private bridge: EvenAppBridge) {}
+  constructor(private bridge: EvenAppBridge, private panel?: PhonePanel) {}
 
   /** Serialize all bridge UI calls (the glasses require queued sends). */
   private enqueue<T>(fn: () => Promise<T>): Promise<T> {
@@ -152,35 +176,40 @@ export class Renderer {
     return next;
   }
 
-  /** Full page render: startup on first call, rebuild on page switches. */
+  /** Full page render: startup on first call, rebuild on layout (variant) switches. */
   render(st: RenderState) {
     return this.enqueue(async () => {
       const page = st.page === 'patient' && st.current ? patientPage(st) : worklistPage(st);
+      this.panel?.drawMirror(page);                 // mirror onto the phone preview
       if (!this.booted) {
         this.booted = true;
         await this.bridge.createStartUpPageContainer(page as never);
       } else {
         await this.bridge.rebuildPageContainer(page as never);
       }
-      this.lastPage = st.page;
+      this.lastVariant = variant(st);
     });
   }
 
-  /** Cheap in-place text updates for the patient page (no flicker). */
+  /** In-place text updates (no flicker). Rebuilds only when the layout variant changes. */
   update(st: RenderState) {
-    if (this.lastPage !== st.page) return this.render(st);
+    const v = variant(st);
+    if (v !== this.lastVariant) return this.render(st);
     return this.enqueue(async () => {
-      if (st.page === 'patient' && st.current) {
+      if (v === 'cards' && st.current) {
         await this.upgrade(ID.card, 'card', cardText(st));
-        await this.upgrade(ID.agent, 'agent', agentText(st));
         await this.upgrade(ID.flags, 'flags', flagsText(st.current));
+      } else if (v === 'voice') {
+        await this.upgrade(ID.card, 'card', voiceBody(st));
       } else {
         await this.upgrade(ID.hdr, 'hdr', worklistHeader(st));
+        await this.upgrade(ID.menu, 'menu', worklistBody(st));   // move the ▶ cursor
       }
     });
   }
 
   private upgrade(containerID: number, containerName: string, content: string) {
+    this.panel?.upgradeMirror(containerID, content);   // keep the phone preview in sync
     return this.bridge.textContainerUpgrade({
       containerID, containerName, contentOffset: 0, contentLength: content.length, content,
     } as never);

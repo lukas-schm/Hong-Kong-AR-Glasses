@@ -7,7 +7,9 @@
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
-    "qr": "node scripts/qr.mjs"
+    "qr": "node scripts/qr.mjs",
+    "pack": "npx -y @evenrealities/evenhub-cli pack app.json dist -o cdars-cdss.ehpk",
+    "simulate": "npx -y @evenrealities/evenhub-simulator http://localhost:5173"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "^0.0.10"

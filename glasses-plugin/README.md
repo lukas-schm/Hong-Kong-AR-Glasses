@@ -29,7 +29,7 @@ Similar patients), tap toggles the mic, double-tap returns to the worklist.
 
 ```bash
 # 1. backend reachable from the phone (run_demo.sh now binds 0.0.0.0:8002)
-./run_demo.sh
+./scripts/run_demo.sh
 
 # 2. serve the plugin on the LAN
 cd glasses-plugin

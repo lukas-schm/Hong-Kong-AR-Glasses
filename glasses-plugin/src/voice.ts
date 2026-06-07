@@ -48,25 +48,31 @@ export class G2Voice {
     return ok;
   }
 
-  /** Stop capture and transcribe on the server. Returns the utterance. */
-  async stop(): Promise<string | null> {
+  /**
+   * Stop capture and ask Gemini about the open patient (transcription +
+   * reasoning + Google Search grounding happen server-side in one call).
+   * Returns the answer text to show in the glasses text window.
+   */
+  async stopAndAsk(patientKey: string): Promise<string | null> {
     if (!this.listening) return null;
     this.listening = false;
     await this.bridge.audioControl(false).catch(() => {});
-    if (!this.chunks.length) return null;
+    if (!this.chunks.length) return 'No audio captured — tap and speak.';
     const wav = pcmToWav(this.chunks);
     this.chunks = [];
     try {
-      const res = await fetch(`${SERVER}/api/v1/agent/voice?lang=${this.lang}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'audio/wav' },
-        body: wav,
-      });
-      if (!res.ok) return null;
-      const { text } = (await res.json()) as { text?: string };
-      return text?.trim() || null;
+      const res = await fetch(
+        `${SERVER}/api/v1/agent/ask?patient=${encodeURIComponent(patientKey)}&lang=${this.lang}`,
+        { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav },
+      );
+      if (!res.ok) {
+        if (res.status === 503) return 'Voice off — GEMINI_API_KEY not set on the server.';
+        return `Voice error (${res.status}).`;
+      }
+      const { answer } = (await res.json()) as { answer?: string };
+      return answer?.trim() || 'No answer.';
     } catch {
-      return null;
+      return 'CDARS server unreachable.';
     }
   }
 }

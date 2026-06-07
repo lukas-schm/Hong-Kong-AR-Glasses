@@ -11,8 +11,8 @@
       "name": "network",
       "desc": "Connects to the CDARS clinical decision-support server (patient worklist, live mortality predictions, voice agent).",
       "whitelist": [
-        "http://10.25.0.140:8002",
-        "ws://10.25.0.140:8002"
+        "http://10.25.0.104:8002",
+        "ws://10.25.0.104:8002"
       ]
     },
     {

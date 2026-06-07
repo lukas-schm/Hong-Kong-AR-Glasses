@@ -15,7 +15,7 @@ import { waitForEvenAppBridge, OsEventTypeList } from '@evenrealities/even_hub_s
 import { bus, type BusActivity, type BusEvent } from './bus';
 import {
   fetchActivePatients, fetchArmPredictions, fetchCohortOutcomes, fetchPatient,
-  sendAgentCommand, type PatientRecord,
+  type PatientRecord,
 } from './cdars';
 import { CARD_COUNT, Renderer, type RenderState } from './render';
 import { G2Voice } from './voice';
@@ -24,6 +24,7 @@ import { mountPhonePanel } from './phonePanel';
 const st: RenderState = {
   page: 'worklist',
   patients: [],
+  worklistIndex: 0,
   current: null,
   predictions: null,
   cohort: null,
@@ -39,9 +40,29 @@ const keyOf = (p: PatientRecord) => p.referenceKey ?? p.hkid ?? '';
 async function main() {
   const panel = mountPhonePanel();
   const bridge = await waitForEvenAppBridge();
-  const renderer = new Renderer(bridge);
+  const renderer = new Renderer(bridge, panel);
   const voice = new G2Voice(bridge);
   panel.log('bridge ready');
+
+  /* ── self-diagnosing: render any uncaught error onto the glasses ──
+     The desktop sim can't reproduce device-only crashes, so surface the
+     actual message on the 576×288 screen instead of white-screening. */
+  let showingError = false;
+  async function showError(msg: string) {
+    if (showingError) return;            // avoid error→render→error loops
+    showingError = true;
+    panel.log(`ERR: ${msg}`);
+    const page = {
+      containerTotalNum: 1,
+      textObject: [{ containerID: 1, containerName: 'err', xPosition: 8, yPosition: 8, width: 560, height: 272, content: `ERR: ${msg}`.slice(0, 380) }],
+    };
+    panel.drawMirror(page);              // show the error on the phone preview too
+    try { await bridge.rebuildPageContainer(page as never); }
+    catch { try { await bridge.createStartUpPageContainer(page as never); } catch { /* ignore */ } }
+    setTimeout(() => { showingError = false; }, 1500);
+  }
+  window.addEventListener('error', (e) => { void showError(`${e.message} @ ${(e.filename || '').split('/').pop()}:${e.lineno}`); });
+  window.addEventListener('unhandledrejection', (e) => { void showError(`promise: ${String((e as PromiseRejectionEvent).reason)}`); });
 
   /* ── model context for the current patient ── */
   async function loadModel(p: PatientRecord) {
@@ -86,62 +107,68 @@ async function main() {
   }
 
   function setCard(card: number, broadcast: boolean) {
+    st.reply = null;                         // scrolling dismisses any voice answer → back to cards
     st.card = ((card % CARD_COUNT) + CARD_COUNT) % CARD_COUNT;
     void renderer.update(st);
     if (broadcast) bus.publishNav({ card: st.card });
   }
 
-  /* ── agent: utterance → server → reply ── */
-  async function sendText(text: string) {
-    st.lastUtterance = text;
-    st.reply = '…';
-    void renderer.update(st);
-    try {
-      const res = await sendAgentCommand(text, { referenceKey: st.current ? keyOf(st.current) : null });
-      st.reply = res.reply;
-      if (res.select) openPatient(res.select, false);
-    } catch {
-      st.reply = 'agent unreachable';
-    }
-    void renderer.update(st);
-  }
-
+  /* ── voice Q&A: tap to ask Gemini about the open patient ── */
   async function toggleTalk() {
     if (voice.listening) {
       st.listening = false;
+      st.reply = '…';                       // "thinking" while Gemini answers
       void renderer.update(st);
-      const text = await voice.stop();
-      if (text) await sendText(text);
-      else { st.reply = st.reply ?? 'voice failed — nothing heard / server ASR down'; void renderer.update(st); }
+      const answer = await voice.stopAndAsk(st.current ? keyOf(st.current) : '');
+      st.reply = answer ?? 'No answer.';
+      void renderer.update(st);
     } else {
+      st.reply = null;                       // clear any previous answer; start listening
       st.listening = await voice.start();
       void renderer.update(st);
     }
   }
 
-  /* ── temple touchpad / mic events ── */
+  /* ── unified input: one place for the touchpad AND the phone buttons ── */
+  function moveCursor(delta: number) {
+    const n = st.patients.length;
+    if (!n) return;
+    st.worklistIndex = Math.max(0, Math.min(n - 1, st.worklistIndex + delta));
+    void renderer.update(st);
+  }
+
+  function gesture(kind: 'up' | 'down' | 'click' | 'double') {
+    if (st.page === 'worklist') {
+      if (kind === 'up') moveCursor(-1);
+      else if (kind === 'down') moveCursor(1);
+      else if (kind === 'click') { const p = st.patients[st.worklistIndex]; if (p) openPatient(keyOf(p), true); }
+      // double: no-op on the worklist
+    } else if (st.page === 'patient') {
+      if (kind === 'up') setCard(st.card - 1, true);
+      else if (kind === 'down') setCard(st.card + 1, true);
+      else if (kind === 'click') void toggleTalk();
+      else if (kind === 'double') backToWorklist(true);
+    }
+  }
+  panel.bindControls({
+    up: () => gesture('up'), down: () => gesture('down'),
+    click: () => gesture('click'), double: () => gesture('double'),
+  });
+
+  /* ── touchpad → gestures (scroll = move · tap = click · double-tap = back) ── */
   bridge.onEvenHubEvent((event) => {
+   try {
     if (event.audioEvent) { voice.onAudio(event.audioEvent.audioPcm); return; }
-
-    if (event.listEvent && st.page === 'worklist') {
-      const idx = event.listEvent.currentSelectItemIndex ?? -1;
-      const p = st.patients[idx];
-      if (event.listEvent.eventType === OsEventTypeList.CLICK_EVENT && p) {
-        openPatient(keyOf(p), true);
-      } else if (typeof idx === 'number' && idx >= 0) {
-        bus.publishNav({ menuOpen: true, menuIndex: idx });
-      }
-      return;
-    }
-
-    if (event.textEvent && st.page === 'patient') {
-      switch (event.textEvent.eventType) {
-        case OsEventTypeList.CLICK_EVENT: void toggleTalk(); break;
-        case OsEventTypeList.DOUBLE_CLICK_EVENT: backToWorklist(true); break;
-        case OsEventTypeList.SCROLL_BOTTOM_EVENT: setCard(st.card + 1, true); break;
-        case OsEventTypeList.SCROLL_TOP_EVENT: setCard(st.card - 1, true); break;
-      }
-    }
+    // Worklist + patient are both event-capture text containers now, so the same
+    // touchpad mapping works on both. Protobuf omits zero, so CLICK_EVENT (0) and
+    // a missing eventType both read as 0 → coalesce.
+    const tx = event.textEvent ? (event.textEvent.eventType ?? 0) : -1;
+    const sy = event.sysEvent ? (event.sysEvent.eventType ?? 0) : -1;
+    if (tx === OsEventTypeList.SCROLL_TOP_EVENT) gesture('up');
+    else if (tx === OsEventTypeList.SCROLL_BOTTOM_EVENT) gesture('down');
+    else if (sy === OsEventTypeList.DOUBLE_CLICK_EVENT) gesture('double');
+    else if (sy === OsEventTypeList.CLICK_EVENT) gesture('click');
+   } catch (e) { void showError('evt: ' + String(e)); }
   });
 
   /* ── inbound bus events (mirror-sync with monitor/cdars) ── */

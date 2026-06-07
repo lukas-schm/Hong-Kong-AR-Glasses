@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from ..cdars import service as svc
 from ..cdars.db import get_db
-from . import asr, llm, planner
+from . import asr, gemini_ask, llm, planner
 
 router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
 
@@ -49,6 +49,28 @@ async def voice(request: Request, lang: str = "en") -> Dict[str, Any]:
         return await run_in_threadpool(asr.transcribe, wav, lang)
     except RuntimeError as e:
         raise HTTPException(503, str(e)) from e
+
+
+@router.post("/ask")
+async def ask(request: Request, patient: str = "", lang: str = "en") -> Dict[str, Any]:
+    """Voice Q&A about the open patient (transcription + reasoning in one Gemini call).
+
+    The glasses POST raw audio/wav of a spoken question plus ?patient=<key>. We
+    load that patient's CDARS record, hand it + the audio to Gemini with Google
+    Search grounding, and return {answer, sources} for the glasses text window.
+    """
+    if not gemini_ask.available():
+        raise HTTPException(503, "Gemini unavailable: set GEMINI_API_KEY and `pip install google-genai`")
+    wav = await request.body()
+    if len(wav) < 1024:
+        raise HTTPException(400, "empty or truncated audio payload")
+    db = get_db()
+    rk = svc.resolve_key(db, patient) if patient else None
+    record = svc.patient_record(db, rk) if rk else None
+    try:
+        return await run_in_threadpool(gemini_ask.ask, wav, record, lang)
+    except Exception as e:  # noqa: BLE001 — surface any SDK/network error to the glasses
+        raise HTTPException(502, f"Gemini error: {e}") from e
 
 
 @router.post("/command")

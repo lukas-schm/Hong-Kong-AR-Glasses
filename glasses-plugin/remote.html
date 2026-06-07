@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Glasses Remote · CDARS</title>
+<style>
+ :root{color-scheme:dark}
+ body{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0f0d;color:#cfe;padding:16px;max-width:560px;margin:0 auto}
+ h1{font-size:18px;margin:0 0 2px} .sub{color:#7a9;font-size:12px;margin:0 0 14px}
+ .row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+ input{flex:1;min-width:160px;background:#0a1f15;color:#cfe;border:1px solid #2a5;border-radius:6px;padding:8px;font:inherit}
+ button{background:#143b2c;color:#cfe;border:1px solid #2a5;border-radius:8px;padding:9px 12px;font:inherit;cursor:pointer}
+ button:hover{background:#1d5740} button:active{background:#2a5;color:#02110b}
+ .patient{display:block;width:100%;text-align:left;margin:6px 0}
+ .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ h3{font-size:13px;color:#8ab;text-transform:uppercase;letter-spacing:.04em;margin:18px 0 6px;border-bottom:1px solid #1c3a2e;padding-bottom:4px}
+ #status{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid #2a5}
+ .ok{background:#0f3; color:#02110b} .bad{background:#511;color:#fbb;border-color:#a44}
+ #log{font-size:11px;color:#7a9;white-space:pre-wrap;max-height:120px;overflow:auto;margin-top:8px;background:#081310;border:1px solid #1c3a2e;border-radius:6px;padding:8px}
+ .glassesDot{font-weight:700}
+</style>
+</head>
+<body>
+  <h1>🕶️ Glasses Remote</h1>
+  <p class="sub">Drives the G2 glasses (and the phone mirror) over the CDARS realtime bus.</p>
+
+  <div class="row">
+    <input id="srv" value="http://10.25.0.104:8002" />
+    <button id="connect">connect</button>
+    <span id="status" class="bad">offline</span>
+  </div>
+  <div class="sub">present: <span id="roles">—</span> · glasses: <span id="g" class="glassesDot">✗</span></div>
+
+  <h3>Open a patient</h3>
+  <div id="patients"><span class="sub">connect to load the worklist…</span></div>
+
+  <h3>Navigate the open patient</h3>
+  <div class="grid">
+    <button onclick="nav(0)">▶ Antibiotics</button>
+    <button onclick="nav(1)">💧 Fluids</button>
+    <button onclick="nav(2)">🩸 BP support</button>
+    <button onclick="nav(3)">👥 Similar patients</button>
+  </div>
+  <div class="row"><button style="flex:1" onclick="worklist()">⌂ Back to worklist</button></div>
+
+  <h3>Push a message to the glasses</h3>
+  <div class="row">
+    <input id="msg" placeholder="text to show on the glasses…" />
+    <button onclick="pushMsg()">send</button>
+  </div>
+
+  <div id="log"></div>
+
+<script>
+let ws=null, base='';
+const $=id=>document.getElementById(id);
+const log=m=>{ $('log').textContent = new Date().toLocaleTimeString()+'  '+m+'\n'+$('log').textContent; };
+function send(o){ if(!ws||ws.readyState!==1){log('not connected');return;} ws.send(JSON.stringify(o)); log('→ '+JSON.stringify(o)); }
+function nav(card){ send({type:'nav', card}); }
+function worklist(){ send({type:'nav', menuOpen:true}); }
+function pushMsg(){ const t=$('msg').value.trim(); if(t){ send({type:'activity', kind:'reply', text:t, source:'remote'}); $('msg').value=''; } }
+
+function setRoles(roles){
+  $('roles').textContent = roles.join(', ')||'—';
+  const has = roles.includes('glasses');
+  $('g').textContent = has?'✓ connected':'✗ not connected';
+  $('g').style.color = has?'#6cff9a':'#fbb';
+}
+async function loadPatients(){
+  try{
+    const r = await fetch(base+'/api/v1/cdars/active'); const list = await r.json();
+    $('patients').innerHTML='';
+    (list||[]).forEach(p=>{
+      const b=document.createElement('button'); b.className='patient';
+      b.textContent=`${p.nameEn||p.referenceKey} · ${p.hospitalCode||''}`;
+      b.onclick=()=>send({type:'select', referenceKey:p.referenceKey});
+      $('patients').appendChild(b);
+    });
+    if(!list||!list.length) $('patients').innerHTML='<span class="sub">no active patients</span>';
+  }catch(e){ $('patients').innerHTML='<span class="sub">could not load worklist ('+e+')</span>'; }
+}
+$('connect').onclick=()=>{
+  base = $('srv').value.trim().replace(/\/$/,'');
+  const wsUrl = base.replace(/^http/,'ws')+'/api/v1/ws?role=remote';
+  if(ws) try{ws.close()}catch{}
+  ws=new WebSocket(wsUrl);
+  ws.onopen=()=>{ $('status').textContent='online'; $('status').className='ok'; log('connected '+wsUrl); loadPatients(); };
+  ws.onclose=()=>{ $('status').textContent='offline'; $('status').className='bad'; setRoles([]); };
+  ws.onerror=()=>log('ws error');
+  ws.onmessage=e=>{ const m=JSON.parse(e.data); if(m.type==='welcome'||m.type==='presence') setRoles(m.clients||[]); };
+};
+$('connect').click();
+</script>
+</body>
+</html>
