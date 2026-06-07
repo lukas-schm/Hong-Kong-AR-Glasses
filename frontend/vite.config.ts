@@ -9,6 +9,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8002',
         changeOrigin: true,
+        // The realtime bus (/api/v1/ws) is a WebSocket upgrade.
+        ws: true,
       },
     },
   },

@@ -1,11 +1,26 @@
-"""FastAPI server for the Antibiotic CDSS."""
+"""FastAPI server for the CDARS CDSS.
+
+Hosts three surfaces over one backend:
+  · the legacy single-patient prediction API (/api/v1/predict …)
+  · the CDARS warehouse REST API (/api/v1/cdars/…)
+  · the agent command endpoint (/api/v1/agent/command)
+and a realtime WebSocket bus (/api/v1/ws) that keeps the AR glasses, the
+model monitor and the CDARS workbench mirror-synced and streams plain-language
+activity events.
+"""
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 from pydantic import BaseModel
 
+from api.agent.router import router as agent_router
+from api.bus import RELAY_TYPES, bus
+from api.cdars import service as cdars_service
+from api.cdars.router import router as cdars_router
 from api.feature_map import payload_to_features
 from api.inference import ModelStore
 
@@ -14,19 +29,28 @@ store = ModelStore()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    bus.bind_loop(asyncio.get_running_loop())
+    # Seed the warehouse first so endpoints work even if the model is slow.
+    summary = cdars_service.ensure_seeded()
+    logger.info(f"CDARS warehouse ready: {summary}")
     store.load_or_fit()
+    cdars_service.set_model_store(store)
+    logger.info("Model store wired into CDARS service.")
     yield
 
 
-app = FastAPI(title="Antibiotic CDSS API", version="1.0", lifespan=lifespan)
+app = FastAPI(title="CDARS CDSS API", version="2.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(cdars_router)
+app.include_router(agent_router)
 
 
+# ── Legacy single-patient prediction API (kept for the dashboard) ───────────
 class PatientPayload(BaseModel):
     sofa: float
     sapsii: float
@@ -35,7 +59,7 @@ class PatientPayload(BaseModel):
     ventilation: bool
     aki: int = 0
     dialysis: bool = False
-    pct: Optional[float] = None          # received but not used by model
+    pct: Optional[float] = None
     crp: Optional[float] = None
     wbc: Optional[float] = None
     temperature: Optional[float] = None
@@ -58,7 +82,7 @@ class PatientPayload(BaseModel):
 
 @app.get("/api/v1/health")
 def health():
-    return {"status": "ok", "models_ready": store.ready}
+    return {"status": "ok", "models_ready": store.ready, "clients": bus.roles()}
 
 
 @app.post("/api/v1/predict")
@@ -75,9 +99,31 @@ def similar_patients(req: PatientPayload):
 
 @app.get("/api/v1/exemplar-patients")
 def exemplar_patients():
-    return {"patients": []}  # static data lives in frontend
+    return {"patients": []}
 
 
 @app.post("/api/v1/survey")
 def survey(data: Dict[str, Any] = {}):  # noqa: B006
     return {}
+
+
+# ── Realtime bus ─────────────────────────────────────────────────────────────
+@app.websocket("/api/v1/ws")
+async def ws_endpoint(ws: WebSocket):
+    role = ws.query_params.get("role", "client")
+    await bus.connect(ws, role)
+    try:
+        while True:
+            msg = await ws.receive_json()
+            mtype = msg.get("type")
+            if mtype in RELAY_TYPES:
+                msg["origin"] = role
+                await bus.broadcast(msg, exclude=ws)
+            elif mtype == "activity":
+                await bus.broadcast(msg)
+    except WebSocketDisconnect:
+        bus.disconnect(ws)
+        await bus.broadcast_presence()
+    except Exception:
+        bus.disconnect(ws)
+        await bus.broadcast_presence()

@@ -1,0 +1,24 @@
+{
+  "package_id": "ai.invertix.cdars",
+  "edition": "202601",
+  "name": "CDARS CDSS",
+  "version": "0.1.0",
+  "min_app_version": "2.0.0",
+  "min_sdk_version": "0.0.10",
+  "entrypoint": "index.html",
+  "permissions": [
+    {
+      "name": "network",
+      "desc": "Connects to the CDARS clinical decision-support server (patient worklist, live mortality predictions, voice agent).",
+      "whitelist": [
+        "http://10.25.0.140:8002",
+        "ws://10.25.0.140:8002"
+      ]
+    },
+    {
+      "name": "g2-microphone",
+      "desc": "Voice commands to the clinical agent (tap a temple to talk; audio is transcribed on the CDARS server)."
+    }
+  ],
+  "supported_languages": ["en", "zh"]
+}

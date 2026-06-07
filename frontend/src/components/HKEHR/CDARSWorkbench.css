@@ -1,0 +1,171 @@
+/* ────────────────────────────────────────────────────────────────────────
+   #cdars workbench — aligned with the #monitor / #glasses console look:
+   flat dark surface, monospace, thin borders. We re-skin the shared HKEHR
+   design tokens to the monitor's palette inside this scope, so the cards,
+   inputs, table and counts all pick up the dark theme automatically, while
+   keeping amber as CDARS's own surface accent.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.cdars-workbench {
+  /* Re-skin shared tokens → monitor's dark console palette */
+  --surface: #0e131d;
+  --surface2: #11161f;
+  --border: #1c2433;
+  --text: #dbe4f0;
+  --text-mid: #c4d2e9;
+  --text-dim: #6c7c93;
+  --cd: #5fe0d1;            /* match the monitor's teal accent */
+  --cd-dim: #0e4d46;
+  /* (no --hk-teal override → the lang toggle inherits the app's global teal) */
+
+  height: 100vh;
+  overflow-y: auto;
+  color: var(--text);
+  font-family: var(--font-mono);
+  background: #07090e;       /* flat, like .mon */
+}
+
+/* .cdars-page (shared HKEHR) hard-sets an amber --cd accent — re-point it to
+   the monitor's teal so the colours match the rest of the app. */
+.cdars-workbench .cdars-page { --cd: #5fe0d1; --cd-dim: #0e4d46; }
+
+/* The shared HKEHR page hard-sets DM Sans + big padding + its own bg —
+   strip all three so the workbench is the monitor's flat monospace console. */
+.cdars-workbench .hkehr-page {
+  font-family: var(--font-mono);
+  background: transparent;
+  min-height: auto;
+  padding: 0 0 40px;
+  overflow: visible;
+}
+
+/* ── header bar (mirrors .mon-header: one compact monospace row) ── */
+.cdars-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+/* plain text logo (no filled pill), same treatment as the monitor's "Emily" */
+.cdars-workbench .cdars-logo {
+  background: none;
+  color: var(--cd);
+  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.cdars-bar__sub { font-size: 12px; color: var(--text-dim); }
+.cdars-workbench .cdars-deid-badge {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--cd);
+  border: 1px solid var(--cd-dim);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.cdars-jump {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+.cdars-jump:hover { color: var(--cd); border-color: var(--cd-dim); }
+
+/* content padding (the page reset above removed the side gutters) */
+.cdars-workbench .cdars-grid { padding: 0 24px; }
+
+/* ── cards / fields ── */
+.cdars-workbench .hkehr-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.cdars-workbench .hkehr-card h2 {
+  color: var(--cd);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.cdars-workbench .hkehr-field > span {
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.cdars-workbench .hkehr-field select,
+.cdars-workbench .hkehr-field input {
+  background: #0b0f17;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.cdars-workbench .hkehr-field select:focus,
+.cdars-workbench .hkehr-field input:focus { border-color: var(--cd); outline: none; }
+.cdars-workbench .hkehr-btn--primary {
+  background: #37d6a0;
+  border-color: #37d6a0;
+  color: #07090e;
+  font-weight: 700;
+}
+.cdars-workbench .hkehr-btn--primary:hover { background: #5fe0d1; }
+.cdars-workbench .cdars-check { color: var(--text-mid); font-size: 12px; }
+.cdars-workbench .cdars-check input { accent-color: var(--cd); }
+
+/* ── results table ── */
+.cdars-workbench .cdars-counts > div { background: var(--surface2); border: 1px solid var(--border); }
+.cdars-workbench .cdars-table td { border-bottom: 1px solid rgba(28, 36, 51, 0.7); color: var(--text-mid); }
+.cdars-workbench .cdars-row--active td { background: rgba(95, 224, 209, 0.07); }
+.cdars-workbench .cdars-row--active .hkehr-mono:first-child { color: #5fe0d1; }
+.cdars-workbench .cdars-link {
+  background: none;
+  border: 1px solid var(--cd-dim);
+  border-radius: 999px;
+  color: var(--cd);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.cdars-workbench .cdars-link:hover { border-color: var(--cd); background: rgba(95, 224, 209, 0.08); }
+.cdars-trunc { font-size: 11px; color: var(--text-dim); margin: 0 0 8px; }
+
+/* ── audit trail ── */
+.cdars-audit { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px; }
+.cdars-audit h3 {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+}
+.cdars-audit__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.cdars-audit__row {
+  display: grid;
+  grid-template-columns: 58px 64px 56px 1fr;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  align-items: baseline;
+}
+.cdars-audit__time { color: #4a5a72; }
+.cdars-audit__act { color: #8fa4c5; font-weight: 600; }
+.cdars-audit__chan { color: var(--cd-dim); }
+.cdars-audit__detail { color: var(--text-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cdars-audit__row--write { background: rgba(95, 224, 209, 0.06); }
+.cdars-audit__row--write .cdars-audit__act { color: #5fe0d1; }
+.cdars-audit__row--reidentify .cdars-audit__act { color: #ff8d7a; }

@@ -1,37 +1,92 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, type MouseEvent, type ReactNode } from 'react';
 import type { ExemplarPatient } from '../../data/exemplarPatients';
+import { useHudSync, setCard, setMenuIndex, selectPatient as syncSelect } from '../../utils/hudSync';
 import './GlassesHUD.css';
 
 /* ────────────────────────────────────────────────────────────────────────
-   Even Realities G2 HUD mockup — lean monochrome green waveguide display.
+   Even Realities G2 HUD — lean monochrome green waveguide display.
+
+   Controlled & sync-aware: the active card and the patients-menu cursor live
+   in the shared hudSync store, so the glasses and the monitor's embedded HUD
+   stay mirror-synced. Navigated with the temple buttons (keyboard ◀▶▲▼⏎⎵).
+
+   Cards: Patients worklist · Agent (agentic interaction) · one card per
+   decision (antibiotics / fluids / BP) · Similar patients (territory-wide).
    Left fixed: patient + top concerns. Bottom fixed: the plan.
-   Right: swipeable cards (one per decision, then similar patients).
    ──────────────────────────────────────────────────────────────────────── */
 
 export interface HUDAssistant {
   supported: boolean;
   listening: boolean;
-  /** Live partial transcript while the user is speaking. */
   interim: string;
-  /** Last final voice transcript — shown as the user's side of the chat. */
   lastUtterance: string | null;
-  /** Last assistant reply, rendered inside the waveguide. */
   reply: string | null;
   busy: boolean;
-  /** Tap on the glasses (anywhere on the display) toggles listening. */
+  error?: 'mic-blocked' | 'no-mic' | 'no-speech' | 'network' | 'start-failed' | null;
   onTap: () => void;
 }
 
+export const VOICE_ERR: Record<string, { en: string; 'zh-HK': string }> = {
+  'mic-blocked': { en: 'Mic blocked — allow it in the address bar, then tap again', 'zh-HK': '咪高峰被封鎖 — 喺網址列允許後再撳' },
+  'no-mic': { en: 'No microphone found', 'zh-HK': '找不到咪高峰' },
+  'no-speech': { en: 'No speech heard — tap and speak', 'zh-HK': '聽唔到聲 — 撳一下再講' },
+  'network': { en: 'Speech network error — type below instead', 'zh-HK': '語音網絡錯誤 — 請改用打字' },
+  'start-failed': { en: "Couldn't start the mic — tap again", 'zh-HK': '無法啟動咪高峰 — 再撳一下' },
+};
+
+export interface PatientMenuItem {
+  referenceKey: string;
+  name: string;
+  subtitle: string;
+  hospital: string;
+  arm?: string;
+}
+
+export interface AgentStep {
+  kind: 'voice' | 'intent' | 'tool' | 'model' | 'db-write' | 'reply' | 'info';
+  text: string;
+  ok?: boolean | null;
+}
+
+export interface CohortOutcomesLite {
+  band: string;
+  n: number;
+  arms: Array<{ arm: string; n: number; survived: number; mortality: number }>;
+}
+
 interface GlassesHUDProps {
-  /** null → standby: no patient loaded yet, tap and say a name. */
+  /** null → standby: no patient loaded yet. */
   patient: ExemplarPatient | null;
+  patients?: PatientMenuItem[];
+  cohort?: CohortOutcomesLite | null;
+  steps?: AgentStep[];
+  onSelectPatient?: (referenceKey: string) => void;
   onClose: () => void;
   assistant?: HUDAssistant;
+  lang?: 'en' | 'zh-HK';
+  /** Show the control-hints strip (glasses + embedded). */
+  controls?: boolean;
+  /** Bind the temple buttons to the keyboard (glasses fullscreen only). */
+  captureKeys?: boolean;
   /** Read-only mirror: bare display, no overlay, no input. */
   mirror?: boolean;
   /** Embedded interactive HUD: bare display, no overlay, taps still work. */
   embedded?: boolean;
 }
+
+const TXT = {
+  patients: { en: 'Patients', 'zh-HK': '病人' },
+  agent: { en: 'Agent', 'zh-HK': '智能助理' },
+  similar: { en: 'Similar patients', 'zh-HK': '相似病人' },
+  standby: { en: 'Standby', 'zh-HK': '待機' },
+  noPatient: { en: 'no patient loaded', 'zh-HK': '未載入病人' },
+  sayName: { en: 'Tap to talk, say a name — or pick below and tap.', 'zh-HK': '撳一撳講出姓名 — 或喺下面揀並撳一下。' },
+  pickHint: { en: '▲▼ move · ⏎ open', 'zh-HK': '▲▼ 移動 · ⏎ 開啟' },
+  thinking: { en: 'thinking…', 'zh-HK': '思考中…' },
+  agentHint: { en: 'say a vital · an intervention · "de-escalate" · a name', 'zh-HK': '講出數據 · 介入 · 「降階」· 姓名' },
+  controls: { en: '◀▶ cards · ▲▼ select · ⏎ tap · ⎵ talk', 'zh-HK': '◀▶ 卡片 · ▲▼ 揀 · ⏎ 撳 · ⎵ 講' },
+  band: { high: { en: 'high severity', 'zh-HK': '高度嚴重' }, moderate: { en: 'moderate severity', 'zh-HK': '中度嚴重' }, low: { en: 'lower severity', 'zh-HK': '較輕' }, unknown: { en: 'similar', 'zh-HK': '相似' } },
+} as const;
 
 interface RedFlag { label: string; value: string; severity: 'crit' | 'warn' }
 
@@ -105,7 +160,6 @@ function trajectory(endRisk: number, startRisk: number): number[] {
   });
 }
 
-/* Lean decision card: one headline + a clean sparkline, no axes or boxes. */
 function DecisionCard({ decision }: { decision: Decision }) {
   const W = 300;
   const H = 96;
@@ -146,101 +200,179 @@ function DecisionCard({ decision }: { decision: Decision }) {
   );
 }
 
-const MOCK_SIMILAR = [
-  { tx: 'Narrowed', survived: true, days: 'home day 9' },
-  { tx: 'Narrowed', survived: true, days: 'home day 11' },
-  { tx: 'Kept', survived: true, days: 'home day 14' },
-  { tx: 'Stopped', survived: false, days: 'died day 6' },
-  { tx: 'Stopped', survived: false, days: 'died day 12' },
-];
-
-const TX_PHRASE: Record<string, string> = {
-  Narrowed: 'narrowing antibiotics',
-  Kept: 'keeping broad cover',
-  Stopped: 'stopping antibiotics',
+const ARM_NAME: Record<string, { en: string; 'zh-HK': string }> = {
+  continue: { en: 'Continuing', 'zh-HK': '繼續廣譜' },
+  deescalate: { en: 'Narrowing', 'zh-HK': '降階' },
+  cease: { en: 'Stopping', 'zh-HK': '停藥' },
 };
 
-function SimilarPatientsCard() {
-  // Contrast outcomes by treatment so the takeaway is what was done and
-  // what happened, not just a head count.
-  const groups = Array.from(
-    MOCK_SIMILAR.reduce((m, r) => {
-      const g = m.get(r.tx) ?? { tx: r.tx, n: 0, survived: 0 };
-      g.n += 1;
-      if (r.survived) g.survived += 1;
-      return m.set(r.tx, g);
-    }, new Map<string, { tx: string; n: number; survived: number }>()).values(),
-  ).sort((a, b) => b.survived / b.n - a.survived / a.n);
-  const best = groups[0];
-  const worst = groups[groups.length - 1];
-  const bestPhrase = TX_PHRASE[best.tx] ?? best.tx.toLowerCase();
+function SimilarCard({ cohort, lang }: { cohort?: CohortOutcomesLite | null; lang: 'en' | 'zh-HK' }) {
+  if (!cohort || cohort.arms.length === 0) {
+    return (
+      <div className="ghud-card__body ghud-sentence ghud-sentence--similar">
+        <div>{lang === 'zh-HK' ? '正在從 CDARS 擷取相似病人…' : 'Retrieving similar patients from CDARS…'}</div>
+      </div>
+    );
+  }
+  const best = cohort.arms[0];
+  const worst = cohort.arms[cohort.arms.length - 1];
+  const bandTxt = (TXT.band[(cohort.band as keyof typeof TXT.band)] ?? TXT.band.unknown)[lang];
+  const bn = ARM_NAME[best.arm]?.[lang] ?? best.arm;
+  const wn = ARM_NAME[worst.arm]?.[lang] ?? worst.arm;
   return (
     <div className="ghud-card__body ghud-sentence ghud-sentence--similar">
-      <div>
-        {bestPhrase.charAt(0).toUpperCase() + bestPhrase.slice(1)} led to survival
-        — <strong>{best.survived} of {best.n}</strong> went home — while{' '}
-        {TX_PHRASE[worst.tx] ?? worst.tx.toLowerCase()} generally led to death
-        — <strong>{worst.n - worst.survived} of {worst.n}</strong> died.
-      </div>
+      {lang === 'zh-HK' ? (
+        <div>
+          {bandTxt}病人中，<strong>{bn}</strong> 死亡率最低
+          （{best.survived}/{best.n} 存活），<strong>{wn}</strong> 最高（{worst.mortality}%）。
+        </div>
+      ) : (
+        <div>
+          In {bandTxt} patients, <strong>{bn}</strong> had the lowest mortality
+          — <strong>{best.survived}/{best.n}</strong> survived — vs <strong>{wn}</strong> at {worst.mortality}%.
+        </div>
+      )}
       <div className="ghud-sentence__sub">
-        from the {MOCK_SIMILAR.length} most similar past patients
+        {lang === 'zh-HK'
+          ? `全港 CDARS · ${cohort.n} 名相似病人`
+          : `territory-wide CDARS · ${cohort.n} similar patients`}
       </div>
     </div>
   );
 }
 
-export function GlassesHUD({ patient, onClose, assistant, mirror = false, embedded = false }: GlassesHUDProps) {
-  const bare = mirror || embedded; // bare = no fullscreen overlay
+const STEP_TAG: Record<AgentStep['kind'], string> = {
+  voice: 'YOU', intent: 'INTENT', tool: 'CDARS', model: 'MODEL', 'db-write': 'WRITE', reply: 'LLM', info: 'INFO',
+};
+
+function AgentCard({ assistant, steps, lang }: { assistant?: HUDAssistant; steps?: AgentStep[]; lang: 'en' | 'zh-HK' }) {
+  const recent = (steps ?? []).slice(-4);
+  return (
+    <div className="ghud-card__body ghud-agent">
+      {recent.length > 0 && (
+        <div className="ghud-agent__steps">
+          {recent.map((s, i) => (
+            <div key={i} className={`ghud-step ghud-step--${s.kind} ${s.ok === false ? 'ghud-step--bad' : ''}`}>
+              <span className="ghud-step__tag">{STEP_TAG[s.kind]}</span>
+              <span className="ghud-step__text">{s.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="ghud-agent__reply">
+        {assistant?.busy ? (
+          <span className="ghud-agent__thinking">{TXT.thinking[lang]}</span>
+        ) : assistant?.reply ? (
+          assistant.reply
+        ) : (
+          <span className="ghud-agent__hint">{TXT.agentHint[lang]}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PatientsCard({
+  patients, menuIndex, onSelect, lang,
+}: { patients: PatientMenuItem[]; menuIndex: number; onSelect: (rk: string) => void; lang: 'en' | 'zh-HK' }) {
+  if (patients.length === 0) {
+    return <div className="ghud-card__body ghud-sentence">{TXT.sayName[lang]}</div>;
+  }
+  return (
+    <div className="ghud-card__body ghud-menu">
+      <ul className="ghud-menu__list">
+        {patients.map((p, i) => (
+          <li
+            key={p.referenceKey}
+            className={`ghud-menu__item ${i === menuIndex ? 'ghud-menu__item--active' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onSelect(p.referenceKey); }}
+          >
+            <span className="ghud-menu__cursor">{i === menuIndex ? '▸' : ''}</span>
+            <span className="ghud-menu__name">{p.name}</span>
+            <span className="ghud-menu__sub">{p.subtitle}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="ghud-menu__hint">{TXT.pickHint[lang]}</div>
+    </div>
+  );
+}
+
+export function GlassesHUD({
+  patient, patients = [], cohort, steps, onSelectPatient, onClose, assistant,
+  lang = 'en', controls = false, captureKeys = false, mirror = false, embedded = false,
+}: GlassesHUDProps) {
+  const bare = mirror || embedded;
+  const sync = useHudSync();
   const flags = useMemo(() => (patient ? deriveRedFlags(patient) : []), [patient]);
   const decisions = useMemo(() => (patient ? deriveDecisions(patient) : []), [patient]);
-  const [card, setCard] = useState(0);
-  const viewportRef = useRef<HTMLDivElement>(null);
 
   const cards = useMemo(() => {
-    if (!patient) {
-      return [{
-        title: 'Standby',
+    const list: Array<{ id: string; title: string; render: () => ReactNode }> = [
+      {
+        id: 'patients', title: TXT.patients[lang],
         render: () => (
-          <div className="ghud-card__body ghud-sentence">
-            Tap, then say a patient name — e.g. “Chan Tai Man”.
-          </div>
+          <PatientsCard patients={patients} menuIndex={sync.menuIndex} lang={lang}
+            onSelect={(rk) => { onSelectPatient?.(rk); syncSelect(rk); }} />
         ),
-      }];
-    }
-    return [
-      { title: 'Similar patients', render: () => <SimilarPatientsCard /> },
-      ...decisions.map((d) => ({ title: d.axis, render: () => <DecisionCard decision={d} /> })),
+      },
+      {
+        id: 'agent', title: TXT.agent[lang],
+        render: () => <AgentCard assistant={assistant} steps={steps} lang={lang} />,
+      },
     ];
-  }, [patient, decisions]);
-  const total = cards.length;
+    if (patient) {
+      decisions.forEach((d) => list.push({ id: d.id, title: d.axis, render: () => <DecisionCard decision={d} /> }));
+      list.push({ id: 'similar', title: TXT.similar[lang], render: () => <SimilarCard cohort={cohort} lang={lang} /> });
+    }
+    return list;
+  }, [patient, patients, cohort, steps, assistant, lang, sync.menuIndex, decisions, onSelectPatient]);
 
-  const scrollToCard = (idx: number) => {
-    const next = Math.max(0, Math.min(total - 1, idx));
-    setCard(next);
-    const vp = viewportRef.current;
-    if (vp) vp.scrollTo({ top: next * vp.clientHeight, behavior: 'smooth' });
+  const total = cards.length;
+  const card = Math.max(0, Math.min(total - 1, sync.card));
+  const onPatientsCard = cards[card]?.id === 'patients';
+
+  // Land on the Agent card when a patient is freshly opened.
+  useEffect(() => {
+    if (patient) setCard(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient?.id]);
+
+  const navCard = (delta: number) => setCard(Math.max(0, Math.min(total - 1, card + delta)));
+  const moveCursor = (delta: number) => {
+    if (onPatientsCard && patients.length) {
+      setMenuIndex(Math.max(0, Math.min(patients.length - 1, sync.menuIndex + delta)));
+    } else {
+      navCard(delta);
+    }
+  };
+  const activate = () => {
+    if (onPatientsCard && patients[sync.menuIndex]) {
+      onSelectPatient?.(patients[sync.menuIndex].referenceKey);
+      syncSelect(patients[sync.menuIndex].referenceKey);
+    } else {
+      assistant?.onTap();
+    }
   };
 
   useEffect(() => {
-    if (bare) return; // an embedded/mirror HUD must not capture page keys
+    if (!captureKeys) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') scrollToCard(card + 1);
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') scrollToCard(card - 1);
+      switch (e.key) {
+        case 'Escape': onClose(); break;
+        case 'ArrowLeft': e.preventDefault(); navCard(-1); break;
+        case 'ArrowRight': e.preventDefault(); navCard(1); break;
+        case 'ArrowUp': e.preventDefault(); moveCursor(-1); break;
+        case 'ArrowDown': e.preventDefault(); moveCursor(1); break;
+        case 'Enter': e.preventDefault(); activate(); break;
+        case ' ': e.preventDefault(); assistant?.onTap(); break;
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const handleScroll = () => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-    const idx = Math.round(vp.scrollTop / vp.clientHeight);
-    if (idx !== card) setCard(idx);
-  };
-
-  // Tapping anywhere on the glasses display toggles voice listening
-  // (temple-tap metaphor); clicking outside the display closes the HUD.
+  // Tapping the waveguide toggles voice (temple-tap); click outside closes.
   const handleDisplayTap = (e: MouseEvent) => {
     e.stopPropagation();
     if (!mirror) assistant?.onTap();
@@ -251,77 +383,70 @@ export function GlassesHUD({ patient, onClose, assistant, mirror = false, embedd
       className={`ghud-display ${assistant?.listening ? 'ghud-display--listening' : ''} ${bare ? 'ghud-display--bare' : ''} ${mirror ? 'ghud-display--mirror' : ''}`}
       onClick={handleDisplayTap}
     >
+      {/* ── Left fixed: patient + top concerns ── */}
+      <aside className="ghud-left">
+        <div className="ghud-name">{patient ? patient.name : ''}</div>
+        <div className="ghud-meta">{patient ? patient.subtitle : TXT.noPatient[lang]}</div>
+        <ul className="ghud-flags">
+          {flags.map((f) => (
+            <li key={f.label} className={`ghud-flag ghud-flag--${f.severity}`}>
+              <span>{f.severity === 'crit' ? '▲' : '△'}</span>
+              <span>{f.label}</span>
+              {f.value && <span className="ghud-flag__val">{f.value}</span>}
+            </li>
+          ))}
+        </ul>
+      </aside>
 
-        {/* ── Left fixed: patient + top concerns ── */}
-        <aside className="ghud-left">
-          <div className="ghud-name">{patient ? patient.name : ''}</div>
-          <div className="ghud-meta">{patient ? patient.subtitle : 'no patient loaded'}</div>
-          <ul className="ghud-flags">
-            {flags.map((f) => (
-              <li key={f.label} className={`ghud-flag ghud-flag--${f.severity}`}>
-                <span>{f.severity === 'crit' ? '▲' : '△'}</span>
-                <span>{f.label}</span>
-                {f.value && <span className="ghud-flag__val">{f.value}</span>}
-              </li>
-            ))}
-          </ul>
-        </aside>
+      {/* ── Right: one active card (button-navigated) ── */}
+      <main className="ghud-right">
+        <div className="ghud-tab">
+          <span>{cards[card]?.title}</span>
+          <span className="ghud-pager">{card + 1}/{total}</span>
+        </div>
+        <div className="ghud-cards ghud-cards--single">
+          <section className="ghud-card">{cards[card]?.render()}</section>
+        </div>
+        <div className="ghud-dots">
+          {cards.map((c, i) => (
+            <button
+              key={c.id}
+              className={`ghud-dot ${i === card ? 'ghud-dot--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setCard(i); }}
+              aria-label={c.title}
+            />
+          ))}
+        </div>
+      </main>
 
-        {/* ── Right: swipeable cards ── */}
-        <main className="ghud-right">
-          <div className="ghud-tab">
-            <span>{cards[card].title}</span>
-            <span className="ghud-pager">{card + 1}/{total}</span>
-          </div>
-          <div className="ghud-cards" ref={viewportRef} onScroll={handleScroll}>
-            {cards.map((c) => (
-              <section className="ghud-card" key={c.title}>{c.render()}</section>
-            ))}
-          </div>
-          <div className="ghud-dots">
-            {cards.map((c, i) => (
-              <button
-                key={c.title}
-                className={`ghud-dot ${i === card ? 'ghud-dot--active' : ''}`}
-                onClick={(e) => { e.stopPropagation(); scrollToCard(i); }}
-                aria-label={c.title}
-              />
-            ))}
-          </div>
-        </main>
-
-        {/* ── Assistant: tap-to-talk status + transcript + reply ── */}
-        {assistant && (
-          <div className="ghud-assist">
-            <span className={`ghud-assist__state ${assistant.listening ? 'ghud-assist__state--on' : ''}`}>
-              {!assistant.supported ? '✕ NO VOICE' : assistant.listening ? '● LISTENING' : '○ TAP TO SPEAK'}
+      {/* ── Assistant: tap-to-talk status + transcript ── */}
+      {assistant && (
+        <div className="ghud-assist">
+          <span className={`ghud-assist__state ${assistant.listening ? 'ghud-assist__state--on' : ''}`}>
+            {!assistant.supported ? '✕ NO VOICE' : assistant.listening ? '● LISTENING' : '○ TAP TO SPEAK'}
+          </span>
+          {assistant.interim ? (
+            <span className="ghud-assist__interim">{assistant.interim}…</span>
+          ) : assistant.error && !assistant.listening ? (
+            <span className="ghud-assist__error">⚠ {VOICE_ERR[assistant.error]?.[lang] ?? assistant.error}</span>
+          ) : assistant.lastUtterance ? (
+            <span className="ghud-assist__chat">
+              <span className="ghud-chat__row ghud-chat__row--user">
+                <span className="ghud-chat__who">YOU</span>{assistant.lastUtterance}
+              </span>
             </span>
-            {assistant.interim ? (
-              <span className="ghud-assist__interim">{assistant.interim}…</span>
-            ) : assistant.busy || assistant.reply ? (
-              <span className="ghud-assist__chat">
-                {assistant.lastUtterance && (
-                  <span className="ghud-chat__row ghud-chat__row--user">
-                    <span className="ghud-chat__who">YOU</span>
-                    {assistant.lastUtterance}
-                  </span>
-                )}
-                <span className="ghud-chat__row ghud-chat__row--llm">
-                  <span className="ghud-chat__who">LLM</span>
-                  {assistant.busy ? <i>thinking…</i> : assistant.reply}
-                </span>
-              </span>
-            ) : (
-              <span className="ghud-assist__hint">
-                {patient ? 'say a vital · an intervention · another name' : 'say a patient name'}
-              </span>
-            )}
-          </div>
-        )}
+          ) : (
+            <span className="ghud-assist__hint">
+              {controls ? TXT.controls[lang] : TXT.agentHint[lang]}
+            </span>
+          )}
+        </div>
+      )}
 
-        {/* ── Bottom fixed: the plan ── */}
-        <footer className="ghud-bottom">
-          {decisions.map((d) => {
+      {/* ── Bottom fixed: the plan / control hints ── */}
+      <footer className="ghud-bottom">
+        {patient ? (
+          decisions.map((d) => {
             const recOpt = d.options.find((o) => o.key === d.recKey)!;
             return (
               <div key={d.id} className="ghud-plan">
@@ -329,13 +454,14 @@ export function GlassesHUD({ patient, onClose, assistant, mirror = false, embedd
                 <span className="ghud-plan__action">{recOpt.label}</span>
               </div>
             );
-          })}
-        </footer>
+          })
+        ) : (
+          <div className="ghud-plan ghud-plan--hint">{controls ? TXT.controls[lang] : TXT.sayName[lang]}</div>
+        )}
+      </footer>
     </div>
   );
 
-  // Bare modes render just the display (the monitor frame scales it);
-  // the standalone mode keeps the click-outside-to-close overlay.
   if (bare) return display;
   return (
     <div className="ghud-overlay" onClick={onClose}>
