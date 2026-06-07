@@ -1,0 +1,107 @@
+{
+  "artifact": "intervention_mortality_sequential",
+  "horizon_d": 28,
+  "block_hours": 6,
+  "interventions": {
+    "intv_vasopressors": {
+      "static_rd_pp": 12.33,
+      "static_cohort": "equipoise",
+      "sequential": {
+        "rd_pp": 6.005,
+        "ci_low": 5.359,
+        "ci_high": 6.652,
+        "se_pp": 0.33,
+        "n_rows": 195320,
+        "n_subjects": 23161,
+        "n_initiations": 2442,
+        "n_events": 27794
+      },
+      "attenuation_pct": 51.0,
+      "rct_rd_pp": null,
+      "rct_benchmarkable": false,
+      "moved_toward_rct": null,
+      "outcome": "mortality_28d",
+      "horizon_d": 28
+    },
+    "intv_mechanical_ventilation": {
+      "static_rd_pp": 12.25,
+      "static_cohort": "equipoise",
+      "sequential": {
+        "rd_pp": 4.978,
+        "ci_low": 4.073,
+        "ci_high": 5.882,
+        "se_pp": 0.461,
+        "n_rows": 95338,
+        "n_subjects": 11713,
+        "n_initiations": 1100,
+        "n_events": 14443
+      },
+      "attenuation_pct": 59.0,
+      "rct_rd_pp": null,
+      "rct_benchmarkable": false,
+      "moved_toward_rct": null,
+      "outcome": "mortality_28d",
+      "horizon_d": 28
+    },
+    "intv_rrt": {
+      "static_rd_pp": 19.37,
+      "static_cohort": "equipoise",
+      "sequential": {
+        "rd_pp": 3.012,
+        "ci_low": 2.491,
+        "ci_high": 3.532,
+        "se_pp": 0.266,
+        "n_rows": 335964,
+        "n_subjects": 24912,
+        "n_initiations": 1011,
+        "n_events": 66568
+      },
+      "attenuation_pct": 84.0,
+      "rct_rd_pp": 0.0,
+      "rct_benchmarkable": true,
+      "moved_toward_rct": true,
+      "outcome": "mortality_28d",
+      "horizon_d": 28
+    },
+    "intv_corticosteroids": {
+      "static_rd_pp": 5.67,
+      "static_cohort": "equipoise",
+      "sequential": {
+        "rd_pp": 2.958,
+        "ci_low": 2.145,
+        "ci_high": 3.771,
+        "se_pp": 0.415,
+        "n_rows": 208565,
+        "n_subjects": 18220,
+        "n_initiations": 2227,
+        "n_events": 43141
+      },
+      "attenuation_pct": 48.0,
+      "rct_rd_pp": -2.0,
+      "rct_benchmarkable": true,
+      "moved_toward_rct": true,
+      "outcome": "mortality_28d",
+      "horizon_d": 28
+    },
+    "intv_antibiotics": {
+      "static_rd_pp": 2.51,
+      "static_cohort": "full",
+      "sequential": {
+        "rd_pp": -1.037,
+        "ci_low": -1.681,
+        "ci_high": -0.392,
+        "se_pp": 0.329,
+        "n_rows": 25856,
+        "n_subjects": 9544,
+        "n_initiations": 10182,
+        "n_events": 4536
+      },
+      "attenuation_pct": 141.0,
+      "rct_rd_pp": null,
+      "rct_benchmarkable": false,
+      "moved_toward_rct": null,
+      "outcome": "mortality_28d",
+      "horizon_d": 28
+    }
+  }
+}

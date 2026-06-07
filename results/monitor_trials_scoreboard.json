@@ -1,0 +1,473 @@
+{
+  "artifact": "intervention_mortality_target_trial",
+  "design": "per-intervention target-trial emulation; pre-treatment baseline (6 h window); equipoise sub-cohorts; doubly-robust AIPW + overlap-weighted ATO",
+  "primary_outcome": "mortality_in_hospital",
+  "interventions": [
+    {
+      "key": "intv_rrt",
+      "label": "Renal-replacement therapy",
+      "plain": "starting dialysis for the kidneys",
+      "cohort": "equipoise",
+      "equipoise_cohort": "aki_23",
+      "positivity_note": "",
+      "direction": "harm",
+      "identification_confidence": "low",
+      "confidence_score": 3,
+      "confidence_checks": {
+        "pretreatment_baseline": true,
+        "balance_smd<0.1": false,
+        "effective_overlap_ess>=0.15": false,
+        "evalue_ci>=2": true,
+        "significant": true
+      },
+      "causal_caveat": "Effect size likely still inflated by confounding by indication that evolves after the baseline window (the escalation decision tracks deterioration the 6 h baseline can't see). High identification confidence \u2260 proven causal magnitude; needs P4 (negative controls / RCT benchmark) and clone-censor-weight to resolve.",
+      "ate_pp": 23.59,
+      "ci": [
+        20.97,
+        26.21
+      ],
+      "ato_pp": 29.42,
+      "att_pp": 19.53,
+      "full_naive_pp": 45.95,
+      "e_value": 4.62,
+      "e_value_ci": 4.26,
+      "balance_smd_weighted": 0.45,
+      "effective_overlap_ess": 0.12,
+      "n_treated": 1035,
+      "n_control": 27153,
+      "rct_prior": "Early-vs-late RRT neutral (AKIKI, IDEAL-ICU, STARRT-AKI); ELAIN single-centre benefit.",
+      "credibility": {
+        "verdict": "RCT-discordant \u2014 effect likely inflated by residual confounding",
+        "placebo_pass": true,
+        "placebo_rd_mean": 0.352,
+        "nco_rd": 0.882,
+        "rct_concordant": false,
+        "rct_note": "Trial RD\u2248+0pp (null); our 95% CI [+21.0,+26.2] excludes it \u2192 DISCORDANT (observational effect likely confounded).",
+        "refuters_pass": true
+      },
+      "sequential": {
+        "static_rd_pp": 19.37,
+        "sequential_rd_pp": 3.012,
+        "sequential_ci": [
+          2.491,
+          3.532
+        ],
+        "attenuation_pct": 84.0,
+        "rct_rd_pp": 0.0,
+        "moved_toward_rct": true,
+        "horizon_d": 28
+      },
+      "estimator_robustness": {
+        "tmle_hgb_rd_pp": 27.4,
+        "tmle_superlearner_rd_pp": 24.61,
+        "max_spread_pp": 4.02,
+        "estimator_robust": false
+      },
+      "horizons": {
+        "mortality_in_hospital": {
+          "label": "In-hospital mortality",
+          "ate_pp": 23.59,
+          "ci": [
+            20.97,
+            26.21
+          ],
+          "e_value": 4.62,
+          "direction": "harm"
+        },
+        "mortality_28d": {
+          "label": "28-day mortality",
+          "ate_pp": 19.37,
+          "ci": [
+            16.84,
+            21.89
+          ],
+          "e_value": 3.46,
+          "direction": "harm"
+        },
+        "mortality_90d": {
+          "label": "90-day mortality",
+          "ate_pp": 20.99,
+          "ci": [
+            18.53,
+            23.45
+          ],
+          "e_value": 3.08,
+          "direction": "harm"
+        }
+      }
+    },
+    {
+      "key": "intv_mechanical_ventilation",
+      "label": "Invasive mechanical ventilation",
+      "plain": "putting the patient on a breathing machine",
+      "cohort": "equipoise",
+      "equipoise_cohort": "resp_failure",
+      "positivity_note": "",
+      "direction": "harm",
+      "identification_confidence": "low",
+      "confidence_score": 4,
+      "confidence_checks": {
+        "pretreatment_baseline": true,
+        "balance_smd<0.1": false,
+        "effective_overlap_ess>=0.15": true,
+        "evalue_ci>=2": true,
+        "significant": true
+      },
+      "causal_caveat": "Effect size likely still inflated by confounding by indication that evolves after the baseline window (the escalation decision tracks deterioration the 6 h baseline can't see). High identification confidence \u2260 proven causal magnitude; needs P4 (negative controls / RCT benchmark) and clone-censor-weight to resolve.",
+      "ate_pp": 14.79,
+      "ci": [
+        11.9,
+        17.68
+      ],
+      "ato_pp": 16.5,
+      "att_pp": 16.27,
+      "full_naive_pp": 14.23,
+      "e_value": 4.68,
+      "e_value_ci": 4.04,
+      "balance_smd_weighted": 0.16,
+      "effective_overlap_ess": 0.22,
+      "n_treated": 1106,
+      "n_control": 11933,
+      "rct_prior": "No ethical RCT of ventilation-vs-none; extreme confounding by indication.",
+      "credibility": {
+        "verdict": "negative-control non-null \u2014 residual confounding likely",
+        "placebo_pass": true,
+        "placebo_rd_mean": 0.642,
+        "nco_rd": 4.527,
+        "rct_concordant": null,
+        "rct_note": "No randomised benchmark exists for this contrast.",
+        "refuters_pass": true
+      },
+      "sequential": {
+        "static_rd_pp": 12.25,
+        "sequential_rd_pp": 4.978,
+        "sequential_ci": [
+          4.073,
+          5.882
+        ],
+        "attenuation_pct": 59.0,
+        "rct_rd_pp": null,
+        "moved_toward_rct": null,
+        "horizon_d": 28
+      },
+      "estimator_robustness": {
+        "tmle_hgb_rd_pp": 14.8,
+        "tmle_superlearner_rd_pp": 15.24,
+        "max_spread_pp": 0.86,
+        "estimator_robust": true
+      },
+      "horizons": {
+        "mortality_in_hospital": {
+          "label": "In-hospital mortality",
+          "ate_pp": 14.79,
+          "ci": [
+            11.9,
+            17.68
+          ],
+          "e_value": 4.68,
+          "direction": "harm"
+        },
+        "mortality_28d": {
+          "label": "28-day mortality",
+          "ate_pp": 12.25,
+          "ci": [
+            9.32,
+            15.17
+          ],
+          "e_value": 3.14,
+          "direction": "harm"
+        },
+        "mortality_90d": {
+          "label": "90-day mortality",
+          "ate_pp": 10.9,
+          "ci": [
+            7.85,
+            13.96
+          ],
+          "e_value": 2.41,
+          "direction": "harm"
+        }
+      }
+    },
+    {
+      "key": "intv_vasopressors",
+      "label": "Vasopressors",
+      "plain": "giving blood-pressure-supporting drugs",
+      "cohort": "equipoise",
+      "equipoise_cohort": "shock",
+      "positivity_note": "",
+      "direction": "harm",
+      "identification_confidence": "high",
+      "confidence_score": 5,
+      "confidence_checks": {
+        "pretreatment_baseline": true,
+        "balance_smd<0.1": true,
+        "effective_overlap_ess>=0.15": true,
+        "evalue_ci>=2": true,
+        "significant": true
+      },
+      "causal_caveat": "Effect size likely still inflated by confounding by indication that evolves after the baseline window (the escalation decision tracks deterioration the 6 h baseline can't see). High identification confidence \u2260 proven causal magnitude; needs P4 (negative controls / RCT benchmark) and clone-censor-weight to resolve.",
+      "ate_pp": 13.61,
+      "ci": [
+        11.6,
+        15.62
+      ],
+      "ato_pp": 13.23,
+      "att_pp": 10.94,
+      "full_naive_pp": 14.98,
+      "e_value": 4.52,
+      "e_value_ci": 4.05,
+      "balance_smd_weighted": 0.07,
+      "effective_overlap_ess": 0.2,
+      "n_treated": 2456,
+      "n_control": 24311,
+      "rct_prior": "No RCT of pressors-vs-none; vasopressin add-on neutral (VASST/VANISH).",
+      "credibility": {
+        "verdict": "internally valid; not externally benchmarkable (no RCT) \u2014 treat as hypothesis",
+        "placebo_pass": true,
+        "placebo_rd_mean": -0.026,
+        "nco_rd": 1.569,
+        "rct_concordant": null,
+        "rct_note": "No randomised benchmark exists for this contrast.",
+        "refuters_pass": true
+      },
+      "sequential": {
+        "static_rd_pp": 12.33,
+        "sequential_rd_pp": 6.005,
+        "sequential_ci": [
+          5.359,
+          6.652
+        ],
+        "attenuation_pct": 51.0,
+        "rct_rd_pp": null,
+        "moved_toward_rct": null,
+        "horizon_d": 28
+      },
+      "estimator_robustness": {
+        "tmle_hgb_rd_pp": 13.78,
+        "tmle_superlearner_rd_pp": 13.17,
+        "max_spread_pp": 0.61,
+        "estimator_robust": true
+      },
+      "horizons": {
+        "mortality_in_hospital": {
+          "label": "In-hospital mortality",
+          "ate_pp": 13.61,
+          "ci": [
+            11.6,
+            15.62
+          ],
+          "e_value": 4.52,
+          "direction": "harm"
+        },
+        "mortality_28d": {
+          "label": "28-day mortality",
+          "ate_pp": 12.33,
+          "ci": [
+            10.31,
+            14.35
+          ],
+          "e_value": 3.31,
+          "direction": "harm"
+        },
+        "mortality_90d": {
+          "label": "90-day mortality",
+          "ate_pp": 11.72,
+          "ci": [
+            9.63,
+            13.8
+          ],
+          "e_value": 2.58,
+          "direction": "harm"
+        }
+      }
+    },
+    {
+      "key": "intv_corticosteroids",
+      "label": "Systemic corticosteroids",
+      "plain": "giving steroid medication",
+      "cohort": "equipoise",
+      "equipoise_cohort": "septic_shock",
+      "positivity_note": "",
+      "direction": "harm",
+      "identification_confidence": "low",
+      "confidence_score": 3,
+      "confidence_checks": {
+        "pretreatment_baseline": true,
+        "balance_smd<0.1": false,
+        "effective_overlap_ess>=0.15": true,
+        "evalue_ci>=2": false,
+        "significant": true
+      },
+      "causal_caveat": "Residual unmeasured confounding possible; read with the E-value and the negative-control/RCT-benchmark layer (P4, pending).",
+      "ate_pp": 7.13,
+      "ci": [
+        5.23,
+        9.04
+      ],
+      "ato_pp": 8.41,
+      "att_pp": 6.48,
+      "full_naive_pp": 9.01,
+      "e_value": 2.26,
+      "e_value_ci": 2.0,
+      "balance_smd_weighted": 0.11,
+      "effective_overlap_ess": 0.25,
+      "n_treated": 2291,
+      "n_control": 18369,
+      "rct_prior": "Septic shock: ADRENAL neutral on mortality, APROCCHSS reduced 90d mortality.",
+      "credibility": {
+        "verdict": "RCT-discordant \u2014 effect likely inflated by residual confounding",
+        "placebo_pass": true,
+        "placebo_rd_mean": 0.295,
+        "nco_rd": -0.316,
+        "rct_concordant": false,
+        "rct_note": "Trial RD\u2248-2pp (null); our 95% CI [+5.2,+9.0] excludes it \u2192 DISCORDANT (observational effect likely confounded).",
+        "refuters_pass": true
+      },
+      "sequential": {
+        "static_rd_pp": 5.67,
+        "sequential_rd_pp": 2.958,
+        "sequential_ci": [
+          2.145,
+          3.771
+        ],
+        "attenuation_pct": 48.0,
+        "rct_rd_pp": -2.0,
+        "moved_toward_rct": true,
+        "horizon_d": 28
+      },
+      "estimator_robustness": {
+        "tmle_hgb_rd_pp": 7.02,
+        "tmle_superlearner_rd_pp": 7.98,
+        "max_spread_pp": 0.96,
+        "estimator_robust": true
+      },
+      "horizons": {
+        "mortality_in_hospital": {
+          "label": "In-hospital mortality",
+          "ate_pp": 7.13,
+          "ci": [
+            5.23,
+            9.04
+          ],
+          "e_value": 2.26,
+          "direction": "harm"
+        },
+        "mortality_28d": {
+          "label": "28-day mortality",
+          "ate_pp": 5.67,
+          "ci": [
+            3.81,
+            7.54
+          ],
+          "e_value": 1.9,
+          "direction": "harm"
+        },
+        "mortality_90d": {
+          "label": "90-day mortality",
+          "ate_pp": 5.93,
+          "ci": [
+            3.88,
+            7.99
+          ],
+          "e_value": 1.74,
+          "direction": "harm"
+        }
+      }
+    },
+    {
+      "key": "intv_antibiotics",
+      "label": "Antibiotics",
+      "plain": "giving antibiotics",
+      "cohort": "full",
+      "equipoise_cohort": "suspected_infection",
+      "positivity_note": "no equipoise cohort \u2014 treatment is near-universal in the indicated population (positivity violation), so only the full-cohort contrast exists",
+      "direction": "harm",
+      "identification_confidence": "high",
+      "confidence_score": 5,
+      "confidence_checks": {
+        "pretreatment_baseline": true,
+        "balance_smd<0.1": true,
+        "effective_overlap_ess>=0.15": true,
+        "evalue_ci>=2": true,
+        "significant": true
+      },
+      "causal_caveat": "Residual unmeasured confounding possible; read with the E-value and the negative-control/RCT-benchmark layer (P4, pending).",
+      "ate_pp": 2.69,
+      "ci": [
+        2.09,
+        3.3
+      ],
+      "ato_pp": 3.79,
+      "att_pp": 2.75,
+      "full_naive_pp": 8.09,
+      "e_value": 2.23,
+      "e_value_ci": 2.01,
+      "balance_smd_weighted": 0.03,
+      "effective_overlap_ess": 0.49,
+      "n_treated": 11563,
+      "n_control": 30549,
+      "rct_prior": "No RCT of abx-vs-none in infection; observational early-abx benefit (Surviving Sepsis).",
+      "credibility": {
+        "verdict": "internally valid; not externally benchmarkable (no RCT) \u2014 treat as hypothesis",
+        "placebo_pass": true,
+        "placebo_rd_mean": 0.096,
+        "nco_rd": 1.957,
+        "rct_concordant": null,
+        "rct_note": "No randomised benchmark exists for this contrast.",
+        "refuters_pass": true
+      },
+      "sequential": {
+        "static_rd_pp": 2.51,
+        "sequential_rd_pp": -1.037,
+        "sequential_ci": [
+          -1.681,
+          -0.392
+        ],
+        "attenuation_pct": 141.0,
+        "rct_rd_pp": null,
+        "moved_toward_rct": null,
+        "horizon_d": 28
+      },
+      "estimator_robustness": {
+        "tmle_hgb_rd_pp": 2.69,
+        "tmle_superlearner_rd_pp": 3.0,
+        "max_spread_pp": 0.35,
+        "estimator_robust": true
+      },
+      "horizons": {
+        "mortality_in_hospital": {
+          "label": "In-hospital mortality",
+          "ate_pp": 2.69,
+          "ci": [
+            2.09,
+            3.3
+          ],
+          "e_value": 2.23,
+          "direction": "harm"
+        },
+        "mortality_28d": {
+          "label": "28-day mortality",
+          "ate_pp": 2.51,
+          "ci": [
+            1.82,
+            3.2
+          ],
+          "e_value": 1.86,
+          "direction": "harm"
+        },
+        "mortality_90d": {
+          "label": "90-day mortality",
+          "ate_pp": 3.37,
+          "ci": [
+            2.57,
+            4.17
+          ],
+          "e_value": 1.79,
+          "direction": "harm"
+        }
+      }
+    }
+  ],
+  "trajectory_artifact": "monitor_trajectory.json"
+}

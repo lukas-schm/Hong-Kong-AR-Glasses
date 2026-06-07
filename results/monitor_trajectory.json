@@ -1,0 +1,589 @@
+{
+  "artifact": "intervention_mortality_trajectory",
+  "grid_days": [
+    7,
+    14,
+    21,
+    28,
+    35,
+    42,
+    49,
+    56,
+    63,
+    70,
+    77,
+    84
+  ],
+  "method": "weekly cross-fit AIPW on the equipoise cohort (all-cause mortality from t0)",
+  "interventions": [
+    {
+      "key": "intv_vasopressors",
+      "label": "Vasopressors",
+      "plain": "giving blood-pressure-supporting drugs",
+      "cohort": "equipoise",
+      "trend": "growing",
+      "headline": "For giving blood-pressure-supporting drugs, the mortality gap widens over time \u2014 +7.6 per 100 by day 7 \u2192 +11.6 by day 84.",
+      "series": [
+        {
+          "day": 7,
+          "week": 1,
+          "rd_pp": 7.587,
+          "ci": [
+            5.967,
+            9.208
+          ],
+          "surv_treated": 0.8631,
+          "surv_control": 0.939
+        },
+        {
+          "day": 14,
+          "week": 2,
+          "rd_pp": 11.805,
+          "ci": [
+            9.875,
+            13.735
+          ],
+          "surv_treated": 0.7896,
+          "surv_control": 0.9077
+        },
+        {
+          "day": 21,
+          "week": 3,
+          "rd_pp": 12.301,
+          "ci": [
+            10.3,
+            14.303
+          ],
+          "surv_treated": 0.7633,
+          "surv_control": 0.8864
+        },
+        {
+          "day": 28,
+          "week": 4,
+          "rd_pp": 12.328,
+          "ci": [
+            10.311,
+            14.346
+          ],
+          "surv_treated": 0.7467,
+          "surv_control": 0.87
+        },
+        {
+          "day": 35,
+          "week": 5,
+          "rd_pp": 12.608,
+          "ci": [
+            10.556,
+            14.659
+          ],
+          "surv_treated": 0.7316,
+          "surv_control": 0.8577
+        },
+        {
+          "day": 42,
+          "week": 6,
+          "rd_pp": 12.878,
+          "ci": [
+            10.839,
+            14.916
+          ],
+          "surv_treated": 0.7188,
+          "surv_control": 0.8476
+        },
+        {
+          "day": 49,
+          "week": 7,
+          "rd_pp": 12.753,
+          "ci": [
+            10.712,
+            14.794
+          ],
+          "surv_treated": 0.712,
+          "surv_control": 0.8396
+        },
+        {
+          "day": 56,
+          "week": 8,
+          "rd_pp": 12.437,
+          "ci": [
+            10.402,
+            14.473
+          ],
+          "surv_treated": 0.7077,
+          "surv_control": 0.8321
+        },
+        {
+          "day": 63,
+          "week": 9,
+          "rd_pp": 12.283,
+          "ci": [
+            10.237,
+            14.328
+          ],
+          "surv_treated": 0.7023,
+          "surv_control": 0.8252
+        },
+        {
+          "day": 70,
+          "week": 10,
+          "rd_pp": 12.024,
+          "ci": [
+            9.968,
+            14.08
+          ],
+          "surv_treated": 0.6988,
+          "surv_control": 0.8191
+        },
+        {
+          "day": 77,
+          "week": 11,
+          "rd_pp": 11.779,
+          "ci": [
+            9.725,
+            13.834
+          ],
+          "surv_treated": 0.6963,
+          "surv_control": 0.8141
+        },
+        {
+          "day": 84,
+          "week": 12,
+          "rd_pp": 11.621,
+          "ci": [
+            9.565,
+            13.677
+          ],
+          "surv_treated": 0.6927,
+          "surv_control": 0.8089
+        }
+      ]
+    },
+    {
+      "key": "intv_mechanical_ventilation",
+      "label": "Invasive mechanical ventilation",
+      "plain": "putting the patient on a breathing machine",
+      "cohort": "equipoise",
+      "trend": "growing",
+      "headline": "For putting the patient on a breathing machine, the mortality gap widens over time \u2014 +7.7 per 100 by day 7 \u2192 +10.6 by day 84.",
+      "series": [
+        {
+          "day": 7,
+          "week": 1,
+          "rd_pp": 7.669,
+          "ci": [
+            5.299,
+            10.039
+          ],
+          "surv_treated": 0.851,
+          "surv_control": 0.9277
+        },
+        {
+          "day": 14,
+          "week": 2,
+          "rd_pp": 11.197,
+          "ci": [
+            8.449,
+            13.944
+          ],
+          "surv_treated": 0.7844,
+          "surv_control": 0.8964
+        },
+        {
+          "day": 21,
+          "week": 3,
+          "rd_pp": 11.486,
+          "ci": [
+            8.608,
+            14.363
+          ],
+          "surv_treated": 0.7584,
+          "surv_control": 0.8733
+        },
+        {
+          "day": 28,
+          "week": 4,
+          "rd_pp": 12.247,
+          "ci": [
+            9.325,
+            15.168
+          ],
+          "surv_treated": 0.7364,
+          "surv_control": 0.8589
+        },
+        {
+          "day": 35,
+          "week": 5,
+          "rd_pp": 12.468,
+          "ci": [
+            9.475,
+            15.461
+          ],
+          "surv_treated": 0.7225,
+          "surv_control": 0.8472
+        },
+        {
+          "day": 42,
+          "week": 6,
+          "rd_pp": 12.449,
+          "ci": [
+            9.407,
+            15.49
+          ],
+          "surv_treated": 0.7126,
+          "surv_control": 0.8371
+        },
+        {
+          "day": 49,
+          "week": 7,
+          "rd_pp": 11.769,
+          "ci": [
+            8.736,
+            14.801
+          ],
+          "surv_treated": 0.7094,
+          "surv_control": 0.8271
+        },
+        {
+          "day": 56,
+          "week": 8,
+          "rd_pp": 11.103,
+          "ci": [
+            8.084,
+            14.123
+          ],
+          "surv_treated": 0.7081,
+          "surv_control": 0.8191
+        },
+        {
+          "day": 63,
+          "week": 9,
+          "rd_pp": 10.981,
+          "ci": [
+            7.981,
+            13.98
+          ],
+          "surv_treated": 0.7022,
+          "surv_control": 0.812
+        },
+        {
+          "day": 70,
+          "week": 10,
+          "rd_pp": 11.076,
+          "ci": [
+            8.026,
+            14.125
+          ],
+          "surv_treated": 0.6956,
+          "surv_control": 0.8063
+        },
+        {
+          "day": 77,
+          "week": 11,
+          "rd_pp": 10.765,
+          "ci": [
+            7.708,
+            13.821
+          ],
+          "surv_treated": 0.6928,
+          "surv_control": 0.8005
+        },
+        {
+          "day": 84,
+          "week": 12,
+          "rd_pp": 10.571,
+          "ci": [
+            7.528,
+            13.613
+          ],
+          "surv_treated": 0.6893,
+          "surv_control": 0.795
+        }
+      ]
+    },
+    {
+      "key": "intv_rrt",
+      "label": "Renal-replacement therapy",
+      "plain": "starting dialysis for the kidneys",
+      "cohort": "equipoise",
+      "trend": "growing",
+      "headline": "For starting dialysis for the kidneys, the mortality gap widens over time \u2014 +11.7 per 100 by day 7 \u2192 +21.4 by day 84.",
+      "series": [
+        {
+          "day": 7,
+          "week": 1,
+          "rd_pp": 11.69,
+          "ci": [
+            9.361,
+            14.018
+          ],
+          "surv_treated": 0.7784,
+          "surv_control": 0.8953
+        },
+        {
+          "day": 14,
+          "week": 2,
+          "rd_pp": 17.031,
+          "ci": [
+            14.512,
+            19.549
+          ],
+          "surv_treated": 0.6813,
+          "surv_control": 0.8516
+        },
+        {
+          "day": 21,
+          "week": 3,
+          "rd_pp": 16.942,
+          "ci": [
+            14.372,
+            19.512
+          ],
+          "surv_treated": 0.6574,
+          "surv_control": 0.8268
+        },
+        {
+          "day": 28,
+          "week": 4,
+          "rd_pp": 19.368,
+          "ci": [
+            16.844,
+            21.892
+          ],
+          "surv_treated": 0.6171,
+          "surv_control": 0.8108
+        },
+        {
+          "day": 35,
+          "week": 5,
+          "rd_pp": 20.521,
+          "ci": [
+            17.934,
+            23.109
+          ],
+          "surv_treated": 0.5943,
+          "surv_control": 0.7995
+        },
+        {
+          "day": 42,
+          "week": 6,
+          "rd_pp": 21.138,
+          "ci": [
+            18.559,
+            23.717
+          ],
+          "surv_treated": 0.5788,
+          "surv_control": 0.7902
+        },
+        {
+          "day": 49,
+          "week": 7,
+          "rd_pp": 21.435,
+          "ci": [
+            18.884,
+            23.985
+          ],
+          "surv_treated": 0.5683,
+          "surv_control": 0.7826
+        },
+        {
+          "day": 56,
+          "week": 8,
+          "rd_pp": 20.805,
+          "ci": [
+            18.253,
+            23.356
+          ],
+          "surv_treated": 0.5663,
+          "surv_control": 0.7744
+        },
+        {
+          "day": 63,
+          "week": 9,
+          "rd_pp": 20.188,
+          "ci": [
+            17.619,
+            22.757
+          ],
+          "surv_treated": 0.5663,
+          "surv_control": 0.7682
+        },
+        {
+          "day": 70,
+          "week": 10,
+          "rd_pp": 20.745,
+          "ci": [
+            18.228,
+            23.262
+          ],
+          "surv_treated": 0.5552,
+          "surv_control": 0.7627
+        },
+        {
+          "day": 77,
+          "week": 11,
+          "rd_pp": 20.785,
+          "ci": [
+            18.298,
+            23.272
+          ],
+          "surv_treated": 0.5495,
+          "surv_control": 0.7574
+        },
+        {
+          "day": 84,
+          "week": 12,
+          "rd_pp": 21.411,
+          "ci": [
+            18.962,
+            23.86
+          ],
+          "surv_treated": 0.5391,
+          "surv_control": 0.7532
+        }
+      ]
+    },
+    {
+      "key": "intv_corticosteroids",
+      "label": "Systemic corticosteroids",
+      "plain": "giving steroid medication",
+      "cohort": "equipoise",
+      "trend": "stable",
+      "headline": "For giving steroid medication, the mortality gap stays steady over time \u2014 +5.3 per 100 by day 7 \u2192 +5.6 by day 84.",
+      "series": [
+        {
+          "day": 7,
+          "week": 1,
+          "rd_pp": 5.305,
+          "ci": [
+            3.664,
+            6.947
+          ],
+          "surv_treated": 0.846,
+          "surv_control": 0.899
+        },
+        {
+          "day": 14,
+          "week": 2,
+          "rd_pp": 5.301,
+          "ci": [
+            3.557,
+            7.046
+          ],
+          "surv_treated": 0.797,
+          "surv_control": 0.85
+        },
+        {
+          "day": 21,
+          "week": 3,
+          "rd_pp": 5.84,
+          "ci": [
+            4.0,
+            7.681
+          ],
+          "surv_treated": 0.7625,
+          "surv_control": 0.8209
+        },
+        {
+          "day": 28,
+          "week": 4,
+          "rd_pp": 5.672,
+          "ci": [
+            3.808,
+            7.536
+          ],
+          "surv_treated": 0.7458,
+          "surv_control": 0.8025
+        },
+        {
+          "day": 35,
+          "week": 5,
+          "rd_pp": 5.821,
+          "ci": [
+            3.88,
+            7.763
+          ],
+          "surv_treated": 0.7315,
+          "surv_control": 0.7898
+        },
+        {
+          "day": 42,
+          "week": 6,
+          "rd_pp": 6.172,
+          "ci": [
+            4.207,
+            8.137
+          ],
+          "surv_treated": 0.7166,
+          "surv_control": 0.7783
+        },
+        {
+          "day": 49,
+          "week": 7,
+          "rd_pp": 6.0,
+          "ci": [
+            4.02,
+            7.981
+          ],
+          "surv_treated": 0.7088,
+          "surv_control": 0.7688
+        },
+        {
+          "day": 56,
+          "week": 8,
+          "rd_pp": 5.648,
+          "ci": [
+            3.668,
+            7.628
+          ],
+          "surv_treated": 0.7038,
+          "surv_control": 0.7603
+        },
+        {
+          "day": 63,
+          "week": 9,
+          "rd_pp": 5.807,
+          "ci": [
+            3.799,
+            7.815
+          ],
+          "surv_treated": 0.695,
+          "surv_control": 0.7531
+        },
+        {
+          "day": 70,
+          "week": 10,
+          "rd_pp": 5.736,
+          "ci": [
+            3.732,
+            7.739
+          ],
+          "surv_treated": 0.6894,
+          "surv_control": 0.7468
+        },
+        {
+          "day": 77,
+          "week": 11,
+          "rd_pp": 5.693,
+          "ci": [
+            3.692,
+            7.694
+          ],
+          "surv_treated": 0.6839,
+          "surv_control": 0.7408
+        },
+        {
+          "day": 84,
+          "week": 12,
+          "rd_pp": 5.6,
+          "ci": [
+            3.593,
+            7.608
+          ],
+          "surv_treated": 0.6796,
+          "surv_control": 0.7356
+        }
+      ]
+    }
+  ],
+  "interpretation_note": "Each point is the doubly-robust difference in cumulative mortality by that day between treated and untreated, within the clinical-equipoise cohort, adjusted for pre-treatment baseline. Trends are descriptive."
+}

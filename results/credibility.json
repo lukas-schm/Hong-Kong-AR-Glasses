@@ -1,0 +1,206 @@
+{
+  "artifact": "intervention_mortality_credibility",
+  "outcome": "mortality_in_hospital",
+  "interventions": {
+    "intv_vasopressors": {
+      "base_rd_pp": 13.611,
+      "ci": [
+        11.6,
+        15.62
+      ],
+      "cohort": "equipoise",
+      "placebo": {
+        "placebo_rd_mean": -0.026,
+        "placebo_rd_sd": 0.385,
+        "placebo_abs_max": 0.714,
+        "p_exceed_real": 0.0,
+        "pass": true
+      },
+      "random_common_cause": {
+        "rcc_rd": 13.392,
+        "shift": -0.218,
+        "pass": true
+      },
+      "subset": {
+        "subset_rd_mean": 13.961,
+        "subset_rd_sd": 0.654,
+        "pass": true
+      },
+      "nco": {
+        "nco": "pressure_injury",
+        "nco_prevalence": 0.051,
+        "nco_rd": 1.569,
+        "pass": true
+      },
+      "rct": {
+        "benchmarkable": false,
+        "source": "No RCT of vasopressors vs none; vasopressin add-on neutral (VASST, VANISH).",
+        "trial_direction": null,
+        "trial_rd_pp": null,
+        "concordant": null,
+        "note": "No randomised benchmark exists for this contrast."
+      },
+      "verdict": "internally valid; not externally benchmarkable (no RCT) \u2014 treat as hypothesis"
+    },
+    "intv_mechanical_ventilation": {
+      "base_rd_pp": 14.79,
+      "ci": [
+        11.9,
+        17.68
+      ],
+      "cohort": "equipoise",
+      "placebo": {
+        "placebo_rd_mean": 0.642,
+        "placebo_rd_sd": 1.527,
+        "placebo_abs_max": 3.203,
+        "p_exceed_real": 0.0,
+        "pass": true
+      },
+      "random_common_cause": {
+        "rcc_rd": 14.972,
+        "shift": 0.182,
+        "pass": true
+      },
+      "subset": {
+        "subset_rd_mean": 15.152,
+        "subset_rd_sd": 1.757,
+        "pass": true
+      },
+      "nco": {
+        "nco": "pressure_injury",
+        "nco_prevalence": 0.041,
+        "nco_rd": 4.527,
+        "pass": false
+      },
+      "rct": {
+        "benchmarkable": false,
+        "source": "No ethical RCT of invasive ventilation vs none.",
+        "trial_direction": null,
+        "trial_rd_pp": null,
+        "concordant": null,
+        "note": "No randomised benchmark exists for this contrast."
+      },
+      "verdict": "negative-control non-null \u2014 residual confounding likely"
+    },
+    "intv_rrt": {
+      "base_rd_pp": 23.588,
+      "ci": [
+        20.97,
+        26.21
+      ],
+      "cohort": "equipoise",
+      "placebo": {
+        "placebo_rd_mean": 0.352,
+        "placebo_rd_sd": 0.638,
+        "placebo_abs_max": 1.847,
+        "p_exceed_real": 0.0,
+        "pass": true
+      },
+      "random_common_cause": {
+        "rcc_rd": 22.967,
+        "shift": -0.621,
+        "pass": true
+      },
+      "subset": {
+        "subset_rd_mean": 23.89,
+        "subset_rd_sd": 1.884,
+        "pass": true
+      },
+      "nco": {
+        "nco": "pressure_injury",
+        "nco_prevalence": 0.049,
+        "nco_rd": 0.882,
+        "pass": true
+      },
+      "rct": {
+        "benchmarkable": true,
+        "source": "Early vs delayed RRT: no mortality difference (AKIKI, IDEAL-ICU, STARRT-AKI); ELAIN single-centre benefit. Trial RD \u2248 0.",
+        "trial_direction": "null",
+        "trial_rd_pp": 0.0,
+        "concordant": false,
+        "note": "Trial RD\u2248+0pp (null); our 95% CI [+21.0,+26.2] excludes it \u2192 DISCORDANT (observational effect likely confounded)."
+      },
+      "verdict": "RCT-discordant \u2014 effect likely inflated by residual confounding"
+    },
+    "intv_corticosteroids": {
+      "base_rd_pp": 7.133,
+      "ci": [
+        5.23,
+        9.04
+      ],
+      "cohort": "equipoise",
+      "placebo": {
+        "placebo_rd_mean": 0.295,
+        "placebo_rd_sd": 0.614,
+        "placebo_abs_max": 1.419,
+        "p_exceed_real": 0.0,
+        "pass": true
+      },
+      "random_common_cause": {
+        "rcc_rd": 6.706,
+        "shift": -0.427,
+        "pass": true
+      },
+      "subset": {
+        "subset_rd_mean": 7.216,
+        "subset_rd_sd": 0.317,
+        "pass": true
+      },
+      "nco": {
+        "nco": "pressure_injury",
+        "nco_prevalence": 0.069,
+        "nco_rd": -0.316,
+        "pass": true
+      },
+      "rct": {
+        "benchmarkable": true,
+        "source": "Septic shock: ADRENAL neutral on 90d mortality; APROCCHSS \u2248 -2.6pp 90d. Trial RD \u2248 0 to slightly protective.",
+        "trial_direction": "null",
+        "trial_rd_pp": -2.0,
+        "concordant": false,
+        "note": "Trial RD\u2248-2pp (null); our 95% CI [+5.2,+9.0] excludes it \u2192 DISCORDANT (observational effect likely confounded)."
+      },
+      "verdict": "RCT-discordant \u2014 effect likely inflated by residual confounding"
+    },
+    "intv_antibiotics": {
+      "base_rd_pp": 2.691,
+      "ci": [
+        2.09,
+        3.3
+      ],
+      "cohort": "full",
+      "placebo": {
+        "placebo_rd_mean": 0.096,
+        "placebo_rd_sd": 0.298,
+        "placebo_abs_max": 0.545,
+        "p_exceed_real": 0.0,
+        "pass": true
+      },
+      "random_common_cause": {
+        "rcc_rd": 2.671,
+        "shift": -0.02,
+        "pass": true
+      },
+      "subset": {
+        "subset_rd_mean": 2.834,
+        "subset_rd_sd": 0.316,
+        "pass": true
+      },
+      "nco": {
+        "nco": "pressure_injury",
+        "nco_prevalence": 0.025,
+        "nco_rd": 1.957,
+        "pass": true
+      },
+      "rct": {
+        "benchmarkable": false,
+        "source": "No RCT of antibiotics vs none in infection (unethical); observational early-abx benefit.",
+        "trial_direction": null,
+        "trial_rd_pp": null,
+        "concordant": null,
+        "note": "No randomised benchmark exists for this contrast."
+      },
+      "verdict": "internally valid; not externally benchmarkable (no RCT) \u2014 treat as hypothesis"
+    }
+  }
+}

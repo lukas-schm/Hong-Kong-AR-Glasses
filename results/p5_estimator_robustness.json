@@ -1,0 +1,186 @@
+{
+  "artifact": "intervention_mortality_p5_estimator_robustness",
+  "outcome": "mortality_in_hospital",
+  "interventions": {
+    "intv_vasopressors": {
+      "cohort": "equipoise",
+      "outcome": "mortality_in_hospital",
+      "estimates": {
+        "aipw_hgb": {
+          "rd_pp": 13.61,
+          "ci": [
+            11.6,
+            15.62
+          ]
+        },
+        "tmle_hgb": {
+          "rd_pp": 13.78,
+          "ci": [
+            11.8,
+            15.75
+          ]
+        },
+        "tmle_hgb_repeated": {
+          "rd_pp": 13.55,
+          "ci": [
+            11.53,
+            15.58
+          ]
+        },
+        "tmle_superlearner": {
+          "rd_pp": 13.17,
+          "ci": [
+            11.43,
+            14.92
+          ]
+        }
+      },
+      "max_spread_pp": 0.61,
+      "robust": true
+    },
+    "intv_mechanical_ventilation": {
+      "cohort": "equipoise",
+      "outcome": "mortality_in_hospital",
+      "estimates": {
+        "aipw_hgb": {
+          "rd_pp": 14.79,
+          "ci": [
+            11.9,
+            17.68
+          ]
+        },
+        "tmle_hgb": {
+          "rd_pp": 14.8,
+          "ci": [
+            11.88,
+            17.73
+          ]
+        },
+        "tmle_hgb_repeated": {
+          "rd_pp": 14.38,
+          "ci": [
+            11.43,
+            17.32
+          ]
+        },
+        "tmle_superlearner": {
+          "rd_pp": 15.24,
+          "ci": [
+            12.66,
+            17.81
+          ]
+        }
+      },
+      "max_spread_pp": 0.86,
+      "robust": true
+    },
+    "intv_rrt": {
+      "cohort": "equipoise",
+      "outcome": "mortality_in_hospital",
+      "estimates": {
+        "aipw_hgb": {
+          "rd_pp": 23.59,
+          "ci": [
+            20.97,
+            26.21
+          ]
+        },
+        "tmle_hgb": {
+          "rd_pp": 27.4,
+          "ci": [
+            24.81,
+            29.99
+          ]
+        },
+        "tmle_hgb_repeated": {
+          "rd_pp": 27.61,
+          "ci": [
+            24.98,
+            30.23
+          ]
+        },
+        "tmle_superlearner": {
+          "rd_pp": 24.61,
+          "ci": [
+            21.5,
+            27.72
+          ]
+        }
+      },
+      "max_spread_pp": 4.02,
+      "robust": false
+    },
+    "intv_corticosteroids": {
+      "cohort": "equipoise",
+      "outcome": "mortality_in_hospital",
+      "estimates": {
+        "aipw_hgb": {
+          "rd_pp": 7.13,
+          "ci": [
+            5.23,
+            9.04
+          ]
+        },
+        "tmle_hgb": {
+          "rd_pp": 7.02,
+          "ci": [
+            5.13,
+            8.91
+          ]
+        },
+        "tmle_hgb_repeated": {
+          "rd_pp": 7.02,
+          "ci": [
+            5.16,
+            8.88
+          ]
+        },
+        "tmle_superlearner": {
+          "rd_pp": 7.98,
+          "ci": [
+            6.23,
+            9.72
+          ]
+        }
+      },
+      "max_spread_pp": 0.96,
+      "robust": true
+    },
+    "intv_antibiotics": {
+      "cohort": "full",
+      "outcome": "mortality_in_hospital",
+      "estimates": {
+        "aipw_hgb": {
+          "rd_pp": 2.69,
+          "ci": [
+            2.09,
+            3.3
+          ]
+        },
+        "tmle_hgb": {
+          "rd_pp": 2.69,
+          "ci": [
+            2.08,
+            3.3
+          ]
+        },
+        "tmle_hgb_repeated": {
+          "rd_pp": 2.65,
+          "ci": [
+            2.04,
+            3.27
+          ]
+        },
+        "tmle_superlearner": {
+          "rd_pp": 3.0,
+          "ci": [
+            2.39,
+            3.62
+          ]
+        }
+      },
+      "max_spread_pp": 0.35,
+      "robust": true
+    }
+  }
+}
