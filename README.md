@@ -87,6 +87,7 @@ CDARS record.
 | **`api/`** | FastAPI backend — CDARS warehouse (SQLite), REST, realtime bus, agent, Gemini voice |
 | **`frontend/`** | React web app — `#monitor` · `#cdars` · `#glasses` |
 | **`glasses-plugin/`** | Even Hub **G2 plugin** — voice-first CDSS + phone mirror & remote control |
+| **`results/`** | Headline causal-ML outputs (DUA-safe aggregates) — see [`results/README.md`](results/README.md) |
 | `run_demo.sh` | Launches API + web together |
 
 ## 🔌 API surface
@@ -109,7 +110,8 @@ Base path `/api/v1`:
 - **Patient data here is synthetic** — the CDARS warehouse is seeded by `api/cdars/seed.py`.
   Real records can't be shown on an AR demo (privacy + the PhysioNet DUA).
 - Per-arm risk shown for demo patients is **cached** (the live model is not part of this
-  build — it's trained upstream on real MIMIC-IV data).
+  build — it's trained upstream on real MIMIC-IV data). The headline aggregate findings
+  are in [`results/`](results/README.md) and [`RESULTS_INTERVENTION_TRIALS.md`](RESULTS_INTERVENTION_TRIALS.md).
 - Decision-support / hypothesis-generating only. Research prototype, **not** a medical device.
 
 See [`HONESTY.md`](HONESTY.md) for the full disclosure of what's real vs. mocked.
